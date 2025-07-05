@@ -1,64 +1,39 @@
 use crossterm::event::{self, Event, KeyCode};
-use ratatui::{
-    prelude::*,
-    widgets::{Block, Borders, List, ListItem},
-};
+use ratatui::prelude::*;
 use std::io::{self, Stdout};
 
-use super::draw;
 use super::state::State;
+use super::ui::{self};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct App {
-    exit: bool,
-    show_popup: bool,
+    state: State,
 }
 
 impl App {
     pub fn new() -> io::Result<Self> {
         Ok(App {
-            state: state::new(),
+            state: State::new()?,
         })
     }
 
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
-        while !self.exit {
-            terminal.draw(|f| self.draw(f))?;
+        while !self.state.exit {
+            if self.state.needs_redraw {
+                terminal.draw(|f| ui::render(&self.state, f))?;
+                self.state.needs_redraw = false;
+            }
             let _ = self.handle_events();
         }
         Ok(())
     }
 
-    pub fn draw(&self, frame: &mut Frame<'_>) {
-        let area = frame.size();
-
-        let items = vec![
-            ListItem::new("file1"),
-            ListItem::new("file2"),
-            ListItem::new("file3"),
-        ];
-
-        let layout = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(33),
-                Constraint::Percentage(33),
-                Constraint::Percentage(33),
-            ])
-            .split(area);
-
-        let block = Block::default().borders(Borders::ALL);
-
-        let list = List::new(items).block(block);
-
-        frame.render_widget(list, layout[1]);
-    }
-
     pub fn handle_events(&mut self) -> io::Result<()> {
         if let Event::Key(key) = event::read()? {
             if key.code == KeyCode::Char('q') {
-                self.exit = true;
+                self.state.exit = true;
             }
+            self.state.needs_redraw = true;
         }
         Ok(())
     }

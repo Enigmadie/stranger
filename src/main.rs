@@ -16,12 +16,12 @@ fn main() -> io::Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut app = App::default();
-    let res = app.run(&mut terminal);
+    let mut app = App::new().unwrap();
+    app.run(&mut terminal)?;
 
     cleanup_terminal(&mut terminal)?;
 
-    res
+    Ok(())
 }
 
 fn cleanup_terminal(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> io::Result<()> {

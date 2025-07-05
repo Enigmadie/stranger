@@ -1,5 +1,5 @@
 mod app;
-pub mod draw;
 pub mod state;
+pub mod ui;
 
 pub use app::App;
