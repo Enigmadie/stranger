@@ -6,14 +6,6 @@ use ratatui::{
 
 use crate::app::state::State;
 
-pub trait Draw {
-    fn render(state: &State, area: Rect) -> impl Widget;
-}
-
-pub struct Header;
-pub struct Body;
-pub struct Footer;
-
 pub fn render(state: &State, frame: &mut Frame<'_>) {
     let area = frame.size();
 
@@ -35,6 +27,14 @@ pub fn render(state: &State, frame: &mut Frame<'_>) {
     frame.render_widget(footer, layout[2]);
 }
 
+pub trait Draw {
+    fn render(state: &State, area: Rect) -> impl Widget;
+}
+
+pub struct Header;
+pub struct Body;
+pub struct Footer;
+
 impl Draw for Header {
     fn render(state: &State, _area: Rect) -> impl Widget {
         Paragraph::new(state.current_dir.as_str())
@@ -51,7 +51,7 @@ impl Draw for Body {
             .map(|e| ListItem::new(e.as_str()))
             .collect();
 
-        List::new(list).block(Block::default().borders(Borders::ALL))
+        List::new(list).block(Block::default())
     }
 }
 
