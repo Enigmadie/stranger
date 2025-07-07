@@ -27,24 +27,20 @@ pub fn render(state: &State, frame: &mut Frame<'_>) {
     frame.render_widget(footer, layout[2]);
 }
 
-pub trait Draw {
-    fn render(state: &State, area: Rect) -> impl Widget;
-}
-
 pub struct Header;
 pub struct Body;
 pub struct Footer;
 
-impl Draw for Header {
-    fn render(state: &State, _area: Rect) -> impl Widget {
+impl Header {
+    fn render(state: &State, _area: Rect) -> Paragraph {
         Paragraph::new(state.current_dir.as_str())
             .block(Block::default().borders(Borders::BOTTOM))
             .alignment(Alignment::Left)
     }
 }
 
-impl Draw for Body {
-    fn render(state: &State, _area: Rect) -> impl Widget {
+impl Body {
+    fn render(state: &State, _area: Rect) -> List {
         let list: Vec<ListItem> = state
             .files
             .iter()
@@ -55,10 +51,43 @@ impl Draw for Body {
     }
 }
 
-impl Draw for Footer {
-    fn render(_state: &State, _area: Rect) -> impl Widget {
+impl Footer {
+    fn render(_state: &State, _area: Rect) -> Paragraph {
         Paragraph::new("Press q to quit")
             .block(Block::default().borders(Borders::NONE))
             .alignment(Alignment::Center)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_state() -> State {
+        State {
+            current_dir: "/src/ui/tests".into(),
+            exit: false,
+            files: vec!["file1".into(), "file2".into()],
+            needs_redraw: false,
+        }
+    }
+
+    #[test]
+    fn header_path() {
+        let state = create_test_state();
+        let area = Rect::new(0, 1, 200, 1);
+        let header = Header::render(&state, area);
+
+        assert!(format!("{:?}", header).contains(state.current_dir.as_str()));
+    }
+
+    #[test]
+    fn footer_path() {
+        let state = create_test_state();
+        let area = Rect::new(0, 1, 200, 1);
+        let footer = Footer::render(&state, area);
+
+        println!("{:?}", footer);
+        assert!(format!("{:?}", footer).contains("Press q to quit"));
     }
 }

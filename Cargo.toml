@@ -8,3 +8,6 @@ ratatui = "0.26"
 crossterm = { version = "0.27", features = ["event-stream"] }
 tokio = { version = "1.40", features = ["full"] }
 open = "5.3"
+
+[dev-dependencies]
+tempfile = "3.20.0"
