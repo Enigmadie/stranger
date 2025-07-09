@@ -35,7 +35,7 @@ pub struct Footer;
 
 impl Header {
     fn render(state: &State, _area: Rect) -> Paragraph {
-        Paragraph::new(state.current_dir.as_str())
+        Paragraph::new(state.current_dir.display().to_string())
             .block(Block::default().borders(Borders::BOTTOM))
             .alignment(Alignment::Left)
     }
@@ -56,7 +56,14 @@ impl<'a> Widget for ColumnsWidget<'a> {
         let constraints: Vec<Constraint> = self
             .lists
             .iter()
-            .map(|_| Constraint::Percentage((100 / self.lists.len().max(1) as u16).max(1)))
+            .enumerate()
+            .map(|(i, _)| {
+                if i >= 2 {
+                    Constraint::Percentage(60)
+                } else {
+                    Constraint::Percentage(20)
+                }
+            })
             .collect();
         let layout = Layout::default()
             .direction(Direction::Horizontal)
@@ -70,7 +77,7 @@ impl<'a> Widget for ColumnsWidget<'a> {
 }
 
 impl Body {
-    fn render<'a>(state: &'a State, area: Rect) -> impl Widget + 'a {
+    fn render<'a>(state: &'a State, _area: Rect) -> impl Widget + 'a {
         let lists: Vec<List> = state
             .files
             .iter()
@@ -90,16 +97,16 @@ impl Body {
                     dir.iter()
                         .enumerate()
                         .map(|(row_id, file)| {
-                            let list_item = ListItem::new(file.as_str());
+                            let list_item = ListItem::new(file.name.as_str());
                             if is_current_column && row_id == state.position_id {
-                                list_item.style(Style::default().fg(Color::White))
+                                list_item.style(Style::default().bg(Color::White).fg(Color::Black))
                             } else {
                                 list_item
                             }
                         })
                         .collect()
                 };
-                List::new(list_items).block(Block::default().title(format!("Column {}", col_id)))
+                List::new(list_items).block(Block::default())
             })
             .collect();
 
@@ -117,13 +124,24 @@ impl Footer {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
+    use crate::app::model::file_entry::{FileEntry, FileVariant};
+
     use super::*;
 
     fn create_test_state() -> State {
         State {
-            current_dir: "/src/ui/tests".into(),
+            current_dir: PathBuf::from("/src/ui/tests"),
             exit: false,
-            files: [vec![], vec!["file1".into(), "file2".into()], vec![]],
+            files: [
+                vec![],
+                vec![FileEntry {
+                    name: "file1".into(),
+                    variant: FileVariant::File,
+                }],
+                vec![],
+            ],
             needs_redraw: false,
             position_id: 0,
         }
@@ -135,7 +153,7 @@ mod tests {
         let area = Rect::new(0, 1, 200, 1);
         let header = Header::render(&state, area);
 
-        assert!(format!("{:?}", header).contains(state.current_dir.as_str()));
+        assert!(format!("{:?}", header).contains(&state.current_dir.display().to_string()));
     }
 
     #[test]
@@ -148,4 +166,3 @@ mod tests {
         assert!(format!("{:?}", footer).contains("Press q to quit"));
     }
 }
-

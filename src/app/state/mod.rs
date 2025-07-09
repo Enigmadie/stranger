@@ -1,14 +1,16 @@
-use std::collections::HashMap;
 use std::env;
 use std::io::{self};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+
+use crate::app::model::file_entry::{FileEntry, FileVariant};
+use crate::app::model::miller::build_miller_columns;
 
 #[derive(Debug)]
 pub struct State {
-    pub current_dir: String,
+    pub current_dir: PathBuf,
     pub position_id: usize,
     pub exit: bool,
-    pub files: [Vec<String>; 3],
+    pub files: [Vec<FileEntry>; 3],
     // pub show_popup: bool,
     pub needs_redraw: bool,
 }
@@ -17,13 +19,13 @@ impl State {
     pub fn new() -> io::Result<Self> {
         let current_dir = env::current_dir()?;
 
-        let files = Self::parse_miller_columns(&current_dir)?;
+        let files = build_miller_columns(&current_dir)?;
 
         // let miller_columns = HashMap::new();
         // let miller_columns_tree = HashMap::new();
 
         Ok(State {
-            current_dir: current_dir.display().to_string(),
+            current_dir,
             files,
             exit: false,
             position_id: 0,
@@ -32,43 +34,18 @@ impl State {
         })
     }
 
-    fn parse_miller_columns(current_dir: &PathBuf) -> io::Result<[Vec<String>; 3]> {
-        let selected_dir_files: Vec<String> = std::fs::read_dir(current_dir)?
-            .filter_map(|entry| {
-                entry
-                    .ok()
-                    .map(|e| e.file_name().to_string_lossy().into_owned())
-            })
-            .collect();
+    pub fn navigate_up(&mut self) {
+        if let Some(parent) = self.current_dir.parent() {
+            self.current_dir = parent.to_path_buf();
+            self.files = build_miller_columns(&self.current_dir).unwrap();
+        }
+    }
 
-        let parent_dir: Option<&Path> = current_dir.parent();
-
-        let parent_dir_files: Vec<String> = match parent_dir {
-            Some(dir) => std::fs::read_dir(dir)?
-                .filter_map(|entry| {
-                    entry
-                        .ok()
-                        .map(|e| e.file_name().to_string_lossy().into_owned())
-                })
-                .collect(),
-            None => vec![],
-        };
-
-        // let mut millerColumnsMap: HashMap<PathBuf, usize> = HashMap::new();
-        //
-        // millerColumnsMap
-        //     .entry(current_dir.to_path_buf())
-        //     .and_modify(|e| *e = 0) //temp
-        //     .or_insert(0);
-        //
-        // if let Some(parent) = parent_dir {
-        //     millerColumnsMap
-        //         .entry(parent.to_path_buf())
-        //         .and_modify(|e| *e = 0) //temp
-        //         .or_insert(0);
-        // }
-
-        // let child_dir: Option
-        Ok([parent_dir_files, selected_dir_files, vec![]])
+    pub fn navigate_down(&mut self) {
+        let child_files = &self.files[2];
+        if let Some(parent) = self.current_dir.parent() {
+            self.current_dir = parent.to_path_buf();
+            self.files = build_miller_columns(&self.current_dir).unwrap();
+        }
     }
 }

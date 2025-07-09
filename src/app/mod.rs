@@ -2,6 +2,7 @@ use crossterm::event::{self, Event, KeyCode};
 use ratatui::prelude::*;
 use std::io::{self, Stdout};
 
+pub mod model;
 pub mod state;
 pub mod ui;
 
@@ -44,6 +45,12 @@ impl App {
                         self.state.position_id += 1;
                     }
                 }
+                KeyCode::Char('h') | KeyCode::Left => {
+                    self.state.navigate_up();
+                }
+                KeyCode::Char('l') | KeyCode::Right => {
+                    self.state.navigate_down();
+                }
                 _ => {}
             }
             self.state.needs_redraw = true;
@@ -51,4 +58,3 @@ impl App {
         Ok(())
     }
 }
-
