@@ -142,6 +142,11 @@ mod tests {
                 }],
                 vec![],
             ],
+            dirs: [
+                Some(PathBuf::from("src/ui")),
+                Some(PathBuf::from("src/ui")),
+                Some(PathBuf::from("src/ui")),
+            ],
             needs_redraw: false,
             position_id: 0,
         }

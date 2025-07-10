@@ -46,10 +46,10 @@ impl App {
                     }
                 }
                 KeyCode::Char('h') | KeyCode::Left => {
-                    self.state.navigate_up();
+                    let _ = self.state.navigate_up();
                 }
                 KeyCode::Char('l') | KeyCode::Right => {
-                    self.state.navigate_down();
+                    let _ = self.state.navigate_down();
                 }
                 _ => {}
             }
