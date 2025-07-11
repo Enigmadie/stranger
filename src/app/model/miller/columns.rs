@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io::{self};
 use std::path::{Path, PathBuf};
 
@@ -6,29 +5,32 @@ use crate::app::model::file_entry::{FileEntry, FileVariant};
 
 #[derive(Debug)]
 pub struct MillerColumns {
-    pub dirs: [Option<PathBuf>; 3],
-    pub files: [Vec<FileEntry>; 3],
+    pub dirs: [Option<PathBuf>; NUM_COLUMNS],
+    pub files: [Vec<FileEntry>; NUM_COLUMNS],
 }
 
+pub const NUM_COLUMNS: usize = 3;
+
 impl MillerColumns {
-    pub fn build_columns(current_dir: &Path) -> io::Result<Self> {
+    pub fn build_columns(current_dir: &Path, position_id: usize) -> io::Result<Self> {
         let selected_dir_files = Self::parse_dir_files(Some(current_dir))?;
 
         let parent_dir: Option<&Path> = current_dir.parent();
 
         let parent_dir_files = Self::parse_dir_files(parent_dir)?;
 
-        let (child_dir, child_dir_files) = if let Some(first_entry) = selected_dir_files.first() {
-            if first_entry.variant == FileVariant::Directory {
-                let child_path = current_dir.join(&first_entry.name);
-                let child_files = Self::parse_dir_files(Some(&child_path))?;
-                (Some(child_path), child_files)
+        let (child_dir, child_dir_files) =
+            if let Some(first_entry) = selected_dir_files.get(position_id) {
+                if first_entry.variant == FileVariant::Directory {
+                    let child_path = current_dir.join(&first_entry.name);
+                    let child_files = Self::parse_dir_files(Some(&child_path))?;
+                    (Some(child_path), child_files)
+                } else {
+                    (None, vec![])
+                }
             } else {
                 (None, vec![])
-            }
-        } else {
-            (None, vec![])
-        };
+            };
 
         // let mut millerColumnsMap: HashMap<PathBuf, usize> = HashMap::new();
         //

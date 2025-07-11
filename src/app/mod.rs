@@ -38,18 +38,16 @@ impl App {
                     self.state.exit = true;
                 }
                 KeyCode::Char('k') | KeyCode::Up => {
-                    self.state.position_id = self.state.position_id.saturating_sub(1);
-                }
-                KeyCode::Char('j') | KeyCode::Down => {
-                    if self.state.position_id < self.state.files[1].len().saturating_sub(1) {
-                        self.state.position_id += 1;
-                    }
-                }
-                KeyCode::Char('h') | KeyCode::Left => {
                     let _ = self.state.navigate_up();
                 }
-                KeyCode::Char('l') | KeyCode::Right => {
+                KeyCode::Char('j') | KeyCode::Down => {
                     let _ = self.state.navigate_down();
+                }
+                KeyCode::Char('h') | KeyCode::Left => {
+                    let _ = self.state.navigate_to_parent();
+                }
+                KeyCode::Char('l') | KeyCode::Right => {
+                    let _ = self.state.navigate_to_child();
                 }
                 _ => {}
             }

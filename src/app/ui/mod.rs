@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, Paragraph, Widget},
 };
 
-use crate::app::state::State;
+use crate::app::{model::miller::positions::get_position, state::State};
 
 pub fn render(state: &State, frame: &mut Frame<'_>) {
     let area = frame.size();
@@ -86,6 +86,7 @@ impl Body {
                 let is_parent_column = col_id == 0;
                 let is_current_column = col_id == 1;
                 let is_child_column = col_id >= 2;
+                let position_id = get_position(&state.positions_map, &state.current_dir);
 
                 let list_items: Vec<ListItem> = if is_parent_column && dir.is_empty() {
                     // if parent dir is empty
@@ -98,7 +99,7 @@ impl Body {
                         .enumerate()
                         .map(|(row_id, file)| {
                             let list_item = ListItem::new(file.name.as_str());
-                            if is_current_column && row_id == state.position_id {
+                            if is_current_column && row_id == position_id {
                                 list_item.style(Style::default().bg(Color::White).fg(Color::Black))
                             } else {
                                 list_item
@@ -124,15 +125,20 @@ impl Footer {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{collections::HashMap, path::PathBuf};
 
     use crate::app::model::file_entry::{FileEntry, FileVariant};
 
     use super::*;
 
     fn create_test_state() -> State {
+        let mut positions_map: HashMap<PathBuf, usize> = HashMap::new();
+        let current_dir = PathBuf::from("/src/ui/tests");
+
+        positions_map.insert(current_dir.clone(), 0);
+
         State {
-            current_dir: PathBuf::from("/src/ui/tests"),
+            current_dir,
             exit: false,
             files: [
                 vec![],
@@ -148,7 +154,7 @@ mod tests {
                 Some(PathBuf::from("src/ui")),
             ],
             needs_redraw: false,
-            position_id: 0,
+            positions_map,
         }
     }
 
