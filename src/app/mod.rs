@@ -6,6 +6,8 @@ pub mod model;
 pub mod state;
 pub mod ui;
 
+use crate::app::state::Mode;
+
 use self::state::State;
 
 #[derive(Debug)]
@@ -33,25 +35,45 @@ impl App {
 
     pub fn handle_events(&mut self) -> io::Result<()> {
         if let Event::Key(key) = event::read()? {
-            match key.code {
-                KeyCode::Char('q') => {
-                    self.state.exit = true;
-                }
-                KeyCode::Char('k') | KeyCode::Up => {
-                    let _ = self.state.navigate_up();
-                }
-                KeyCode::Char('j') | KeyCode::Down => {
-                    let _ = self.state.navigate_down();
-                }
-                KeyCode::Char('h') | KeyCode::Left => {
-                    let _ = self.state.navigate_to_parent();
-                }
-                KeyCode::Char('l') | KeyCode::Right => {
-                    let _ = self.state.navigate_to_child();
-                }
-                _ => {}
+            match self.state.mode {
+                Mode::Normal => match key.code {
+                    KeyCode::Char('q') => {
+                        self.state.exit = true;
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        let _ = self.state.navigate_up();
+                        self.state.needs_redraw = true;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        let _ = self.state.navigate_down();
+                        self.state.needs_redraw = true;
+                    }
+                    KeyCode::Char('h') | KeyCode::Left => {
+                        let _ = self.state.navigate_to_parent();
+                        self.state.needs_redraw = true;
+                    }
+                    KeyCode::Char('l') | KeyCode::Right => {
+                        let _ = self.state.navigate_to_child();
+                        self.state.needs_redraw = true;
+                    }
+                    KeyCode::Char('r') => {
+                        self.state.rename();
+                        self.state.needs_redraw = true;
+                    }
+                    _ => {}
+                },
+                Mode::Insert => match key.code {
+                    KeyCode::Char(c) => {
+                        self.state.input.push(c);
+                        self.state.needs_redraw = true;
+                    }
+                    KeyCode::Enter => {
+                        self.state.needs_redraw = true;
+                    }
+                    _ => {}
+                },
+                Mode::Visual => {}
             }
-            self.state.needs_redraw = true;
         }
         Ok(())
     }

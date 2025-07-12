@@ -8,6 +8,14 @@ use crate::app::model::miller::columns::{MillerColumns, NUM_COLUMNS};
 use crate::app::model::miller::positions::{
     get_position, parse_path_positions, update_dir_position,
 };
+use crate::app::ui::modal::ModalKind;
+
+#[derive(Debug)]
+pub enum Mode {
+    Normal,
+    Insert,
+    Visual,
+}
 
 #[derive(Debug)]
 pub struct State {
@@ -16,8 +24,11 @@ pub struct State {
     pub files: [Vec<FileEntry>; NUM_COLUMNS],
     pub dirs: [Option<PathBuf>; NUM_COLUMNS],
     pub positions_map: HashMap<PathBuf, usize>,
-    // pub show_popup: bool,
+    pub mode: Mode,
+    pub show_popup: bool,
+    pub modal_type: ModalKind,
     pub needs_redraw: bool,
+    pub input: String,
 }
 
 impl State {
@@ -33,8 +44,11 @@ impl State {
             dirs: miller_columns.dirs,
             exit: false,
             positions_map: miller_positions,
-            // show_popup: false,
+            mode: Mode::Normal,
+            show_popup: false,
+            modal_type: ModalKind::Default,
             needs_redraw: true,
+            input: String::from(""),
         })
     }
 
@@ -81,5 +95,9 @@ impl State {
             self.dirs = miller_columns.dirs;
         }
         Ok(())
+    }
+
+    pub fn rename(&mut self) {
+        self.show_popup = true;
     }
 }
