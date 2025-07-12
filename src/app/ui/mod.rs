@@ -6,7 +6,10 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, Paragraph, Widget},
 };
 
-use crate::app::{model::miller::positions::get_position, state::State};
+use crate::app::{
+    model::{file_entry::FileVariant, miller::positions::get_position},
+    state::State,
+};
 
 pub fn render(state: &State, frame: &mut Frame<'_>) {
     let area = frame.size();
@@ -92,18 +95,37 @@ impl Body {
                     // if parent dir is empty
                     vec![]
                 } else if (is_current_column || is_child_column) && dir.is_empty() {
-                    // is current or child dir are empty
+                    // if current or child dir are empty
                     vec![ListItem::new("empty")]
                 } else {
                     dir.iter()
                         .enumerate()
                         .map(|(row_id, file)| {
-                            let list_item = ListItem::new(file.name.as_str());
-                            if is_current_column && row_id == position_id {
-                                list_item.style(Style::default().bg(Color::White).fg(Color::Black))
-                            } else {
-                                list_item
-                            }
+                            let mut list_item = ListItem::new(file.name.as_str());
+                            let is_selected_column = is_current_column && row_id == position_id;
+
+                            list_item = match file.variant {
+                                FileVariant::Directory => {
+                                    if is_selected_column {
+                                        list_item.style(
+                                            Style::default().bg(Color::Blue).fg(Color::Black),
+                                        )
+                                    } else {
+                                        list_item.style(Style::default().fg(Color::Blue))
+                                    }
+                                }
+                                FileVariant::File => {
+                                    if is_selected_column {
+                                        list_item.style(
+                                            Style::default().bg(Color::White).fg(Color::Black),
+                                        )
+                                    } else {
+                                        list_item.style(Style::default().fg(Color::White))
+                                    }
+                                }
+                            };
+
+                            list_item
                         })
                         .collect()
                 };
