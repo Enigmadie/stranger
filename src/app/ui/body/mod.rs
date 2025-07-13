@@ -7,6 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{
+    config::constants::ui::{COLUMN_PERCENTAGE, THIRD_COLUMN_PERCENTAGE},
     model::{file_entry::FileVariant, miller::positions::get_position},
     state::State,
 };
@@ -28,9 +29,9 @@ impl<'a> Widget for ColumnsWidget<'a> {
             .enumerate()
             .map(|(i, _)| {
                 if i >= 2 {
-                    Constraint::Percentage(60)
+                    Constraint::Percentage(THIRD_COLUMN_PERCENTAGE)
                 } else {
-                    Constraint::Percentage(20)
+                    Constraint::Percentage(COLUMN_PERCENTAGE)
                 }
             })
             .collect();
@@ -49,6 +50,7 @@ pub struct Body;
 
 impl Body {
     pub fn build<'a>(state: &'a State, _area: Rect) -> impl Widget + 'a {
+        let position_id = get_position(&state.positions_map, &state.current_dir);
         let lists: Vec<List> = state
             .files
             .iter()
@@ -57,7 +59,6 @@ impl Body {
                 let is_parent_column = col_id == 0;
                 let is_current_column = col_id == 1;
                 let is_child_column = col_id >= 2;
-                let position_id = get_position(&state.positions_map, &state.current_dir);
 
                 let list_items: Vec<ListItem> = if is_parent_column && dir.is_empty() {
                     // if parent dir is empty

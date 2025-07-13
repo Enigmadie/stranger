@@ -3,12 +3,13 @@ use std::env;
 use std::io::{self};
 use std::path::PathBuf;
 
+use crate::app::config::constants::model::NUM_COLUMNS;
 use crate::app::model::file_entry::FileEntry;
-use crate::app::model::miller::columns::{MillerColumns, NUM_COLUMNS};
+use crate::app::model::miller::columns::MillerColumns;
 use crate::app::model::miller::positions::{
     get_position, parse_path_positions, update_dir_position,
 };
-use crate::app::ui::modal::ModalKind;
+use crate::app::ui::modal::{ModalKind, ModalRect};
 
 #[derive(Debug)]
 pub enum Mode {
@@ -20,14 +21,12 @@ pub enum Mode {
 #[derive(Debug)]
 pub struct State {
     pub current_dir: PathBuf,
-    pub exit: bool,
     pub files: [Vec<FileEntry>; NUM_COLUMNS],
     pub dirs: [Option<PathBuf>; NUM_COLUMNS],
     pub positions_map: HashMap<PathBuf, usize>,
     pub mode: Mode,
     pub show_popup: bool,
     pub modal_type: ModalKind,
-    pub needs_redraw: bool,
     pub input: String,
 }
 
@@ -42,12 +41,10 @@ impl State {
             current_dir,
             files: miller_columns.files,
             dirs: miller_columns.dirs,
-            exit: false,
             positions_map: miller_positions,
             mode: Mode::Normal,
             show_popup: false,
-            modal_type: ModalKind::Default,
-            needs_redraw: true,
+            modal_type: ModalKind::UnderLine,
             input: String::from(""),
         })
     }
@@ -99,5 +96,13 @@ impl State {
 
     pub fn rename(&mut self) {
         self.show_popup = true;
+        self.modal_type = ModalKind::UnderLine;
+        self.mode = Mode::Insert;
+    }
+
+    pub fn exit_insert_mode(&mut self) {
+        self.show_popup = false;
+        self.modal_type = ModalKind::UnderLine;
+        self.mode = Mode::Normal;
     }
 }

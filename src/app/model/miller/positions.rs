@@ -1,6 +1,5 @@
+use crate::app::config::constants::model::ZERO_POSITION;
 use std::{collections::HashMap, path::PathBuf};
-
-pub const ZERO_POSITION: usize = 0;
 
 pub fn parse_path_positions(current_dir: &PathBuf) -> HashMap<PathBuf, usize> {
     let mut positions = HashMap::new();

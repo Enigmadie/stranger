@@ -1,6 +1,7 @@
 use std::io::{self};
 use std::path::{Path, PathBuf};
 
+use crate::app::config::constants::model::NUM_COLUMNS;
 use crate::app::model::file_entry::{FileEntry, FileVariant};
 
 #[derive(Debug)]
@@ -8,8 +9,6 @@ pub struct MillerColumns {
     pub dirs: [Option<PathBuf>; NUM_COLUMNS],
     pub files: [Vec<FileEntry>; NUM_COLUMNS],
 }
-
-pub const NUM_COLUMNS: usize = 3;
 
 impl MillerColumns {
     pub fn build_columns(current_dir: &Path, position_id: usize) -> io::Result<Self> {

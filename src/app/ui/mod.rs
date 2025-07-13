@@ -8,6 +8,7 @@ use ratatui::{
 };
 
 use crate::app::{
+    config::constants::ui::{FOOTER_HEIGHT, HEADER_HEIGHT},
     state::State,
     ui::{body::Body, modal::Modal},
 };
@@ -18,9 +19,9 @@ pub fn render(state: &State, frame: &mut Frame<'_>) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(2),
+            Constraint::Length(HEADER_HEIGHT),
             Constraint::Min(0),
-            Constraint::Length(1),
+            Constraint::Length(FOOTER_HEIGHT),
         ])
         .split(area);
 
@@ -35,6 +36,7 @@ pub fn render(state: &State, frame: &mut Frame<'_>) {
 
     if state.show_popup {
         let modal = Modal::build(state, area);
+        frame.render_widget(modal, area);
     }
     // frame.render_widget(, area);
 }
@@ -79,7 +81,6 @@ mod tests {
 
         State {
             current_dir,
-            exit: false,
             files: [
                 vec![],
                 vec![FileEntry {
@@ -95,8 +96,9 @@ mod tests {
             ],
             mode: Mode::Normal,
             show_popup: false,
-            needs_redraw: false,
+            modal_type: modal::ModalKind::UnderLine,
             positions_map,
+            input: String::from(""),
         }
     }
 
