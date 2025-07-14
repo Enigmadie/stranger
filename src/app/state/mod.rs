@@ -9,7 +9,7 @@ use crate::app::model::miller::columns::MillerColumns;
 use crate::app::model::miller::positions::{
     get_position, parse_path_positions, update_dir_position,
 };
-use crate::app::ui::modal::{ModalKind, ModalRect};
+use crate::app::ui::modal::ModalKind;
 
 #[derive(Debug)]
 pub enum Mode {

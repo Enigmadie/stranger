@@ -62,50 +62,21 @@ impl Footer {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, path::PathBuf};
-
     use ratatui::buffer::Buffer;
 
-    use crate::app::{
-        model::file_entry::{FileEntry, FileVariant},
-        state::Mode,
-    };
+    use crate::app::test_utils::create_test_state;
 
     use super::*;
-
-    fn create_test_state() -> State {
-        let mut positions_map: HashMap<PathBuf, usize> = HashMap::new();
-        let current_dir = PathBuf::from("/src/ui/tests");
-
-        positions_map.insert(current_dir.clone(), 0);
-
-        State {
-            current_dir,
-            files: [
-                vec![],
-                vec![FileEntry {
-                    name: "file1".into(),
-                    variant: FileVariant::File,
-                }],
-                vec![],
-            ],
-            dirs: [
-                Some(PathBuf::from("src/ui")),
-                Some(PathBuf::from("src/ui")),
-                Some(PathBuf::from("src/ui")),
-            ],
-            mode: Mode::Normal,
-            show_popup: false,
-            modal_type: modal::ModalKind::UnderLine,
-            positions_map,
-            input: String::from(""),
-        }
-    }
 
     #[test]
     fn header_path() {
         let state = create_test_state();
-        let area = Rect::new(0, 1, 200, 1);
+        let area = Rect {
+            x: 1,
+            y: 1,
+            width: 150,
+            height: 150,
+        };
         let header = Header::build(&state, area);
 
         let mut buffer = Buffer::empty(area);
@@ -123,7 +94,12 @@ mod tests {
     #[test]
     fn footer_path() {
         let state = create_test_state();
-        let area = Rect::new(0, 1, 200, 1);
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 50,
+            height: 3,
+        };
         let footer = Footer::build(&state, area);
 
         let mut buffer = Buffer::empty(area);
@@ -135,6 +111,6 @@ mod tests {
             .filter_map(|cell| cell.symbol().chars().next())
             .collect();
 
-        assert!(text.contains(&state.current_dir.display().to_string()));
+        assert!(text.contains("Press q to quit"));
     }
 }

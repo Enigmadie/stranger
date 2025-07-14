@@ -1,13 +1,12 @@
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::prelude::*;
 use std::io::{self, stdout};
 
-mod app;
-use app::App;
+use stranger::App;
 
 fn main() -> io::Result<()> {
     enable_raw_mode()?;

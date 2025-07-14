@@ -5,6 +5,7 @@ use std::io::{self, Stdout};
 pub mod config;
 pub mod model;
 pub mod state;
+pub mod test_utils;
 pub mod ui;
 
 use crate::app::state::Mode;
@@ -72,7 +73,6 @@ impl App {
                         self.exit = true;
                     }
                     KeyCode::Esc => {
-                        println!("Esc pressed"); // Отладка
                         self.state.exit_insert_mode();
                         self.needs_redraw = true;
                     }
