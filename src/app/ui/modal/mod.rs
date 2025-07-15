@@ -1,15 +1,14 @@
-use ratatui::{
-    buffer::Buffer,
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::Text,
-    widgets::{Block, Borders, Clear, Paragraph, Widget},
-};
-
 use crate::app::{
     config::constants::ui::{COLUMN_PERCENTAGE, FOOTER_HEIGHT, HEADER_HEIGHT},
     model::miller::positions::get_position,
     state::State,
+};
+use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
+    style::{Color, Style},
+    text::Text,
+    widgets::{Block, Borders, Clear, Paragraph, Widget},
 };
 
 #[derive(Debug)]
@@ -34,7 +33,7 @@ impl DefaultRect for Rect {
 }
 
 pub struct Modal<'a> {
-    state: &'a State,
+    state: &'a State<'a>,
     area: Rect,
 }
 
@@ -47,40 +46,35 @@ impl<'a> Widget for Modal<'a> {
                 let modal_area = Rect {
                     x,
                     y,
-                    height: 3 + 3,
-                    width: x + 2,
+                    height: 3,
+                    width: x,
                 };
 
                 Clear.render(modal_area, buf);
 
-                let layout = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([Constraint::Length(3), Constraint::Length(3)])
-                    .split(modal_area);
+                let backdrop = Block::default().style(Style::default());
+                backdrop.render(modal_area, buf);
 
-                let tab_area = layout[0]; // Верхняя часть (заголовок)
-                let input_area = layout[1];
+                // let input = Input {
+                //     state: InputState {
+                //         value: state.input.clone(),
+                //         cursor: state.cursor,
+                //     },
+                //     theme: Default::default(),
+                // };
 
-                // Заголовок с фоном
-                let tab = Paragraph::new(" Rename File ")
-                    .style(
-                        Style::default()
-                            .bg(Color::Blue)
-                            .fg(Color::White)
-                            .add_modifier(Modifier::BOLD),
-                    )
-                    .block(
-                        Block::default()
-                            .borders(Borders::ALL)
-                            .style(Style::default().bg(Color::Blue)),
-                    );
-                tab.render(tab_area, buf);
+                let mut input = self.state.input.clone();
 
-                // Строка ввода
-                let input = Paragraph::new(Text::from(self.state.input.to_string()))
-                    .style(Style::default().bg(Color::Green).fg(Color::White))
-                    .block(Block::default().borders(Borders::NONE));
-                input.render(input_area, buf);
+                input.set_block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title("Rename File")
+                        .style(Style::default().fg(Color::White)),
+                );
+
+                if self.state.show_popup {
+                    self.state.input.render(modal_area, buf);
+                }
             }
         }
     }

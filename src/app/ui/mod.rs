@@ -14,7 +14,7 @@ use crate::app::{
 };
 
 pub fn render(state: &State, frame: &mut Frame<'_>) {
-    let area = frame.size();
+    let area = frame.area();
 
     let layout = Layout::default()
         .direction(Direction::Vertical)

@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event, KeyCode, KeyModifiers};
+use ratatui::crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::prelude::*;
 use std::io::{self, Stdout};
 
@@ -13,13 +13,13 @@ use crate::app::state::Mode;
 use self::state::State;
 
 #[derive(Debug)]
-pub struct App {
-    state: State,
+pub struct App<'a> {
+    state: State<'a>,
     exit: bool,
     needs_redraw: bool,
 }
 
-impl App {
+impl<'a> App<'a> {
     pub fn new() -> io::Result<Self> {
         Ok(App {
             state: State::new()?,
@@ -40,7 +40,8 @@ impl App {
     }
 
     pub fn handle_events(&mut self) -> io::Result<()> {
-        if let Event::Key(key) = event::read()? {
+        let event = event::read()?;
+        if let Event::Key(key) = event {
             match self.state.mode {
                 Mode::Normal => match key.code {
                     KeyCode::Char('q') => {
@@ -69,25 +70,24 @@ impl App {
                     _ => {}
                 },
                 Mode::Insert => match key.code {
-                    KeyCode::Char('q') => {
-                        self.exit = true;
+                    KeyCode::Enter => {
+                        self.state.push_message();
+                        self.needs_redraw = true;
                     }
                     KeyCode::Esc => {
-                        self.state.exit_insert_mode();
+                        self.state.stop_editing();
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('[') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        self.state.exit_insert_mode();
+                        self.state.stop_editing();
                         self.needs_redraw = true;
                     }
-                    KeyCode::Char(c) => {
-                        self.state.input.push(c);
-                        self.needs_redraw = true;
+                    _ => {
+                        if self.state.input.lines().join("").len() < 255 {
+                            self.state.input.input(event);
+                            self.needs_redraw = true;
+                        }
                     }
-                    KeyCode::Enter => {
-                        self.needs_redraw = true;
-                    }
-                    _ => {}
                 },
                 Mode::Visual => {}
             }

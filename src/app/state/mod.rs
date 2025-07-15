@@ -3,6 +3,9 @@ use std::env;
 use std::io::{self};
 use std::path::PathBuf;
 
+use ratatui::style::{Color, Modifier, Style};
+use tui_textarea::TextArea;
+
 use crate::app::config::constants::model::NUM_COLUMNS;
 use crate::app::model::file_entry::FileEntry;
 use crate::app::model::miller::columns::MillerColumns;
@@ -19,7 +22,7 @@ pub enum Mode {
 }
 
 #[derive(Debug)]
-pub struct State {
+pub struct State<'a> {
     pub current_dir: PathBuf,
     pub files: [Vec<FileEntry>; NUM_COLUMNS],
     pub dirs: [Option<PathBuf>; NUM_COLUMNS],
@@ -27,15 +30,17 @@ pub struct State {
     pub mode: Mode,
     pub show_popup: bool,
     pub modal_type: ModalKind,
-    pub input: String,
+    pub input: TextArea<'a>,
 }
 
-impl State {
+impl<'a> State<'a> {
     pub fn new() -> io::Result<Self> {
         let current_dir = env::current_dir()?;
 
         let miller_columns = MillerColumns::build_columns(&current_dir, 0)?;
         let miller_positions = parse_path_positions(&current_dir);
+        let textarea = TextArea::default();
+        // textarea.set_cursor_line_style(Style::default().add_modifier(Modifier::UNDERLINED));
 
         Ok(State {
             current_dir,
@@ -45,7 +50,7 @@ impl State {
             mode: Mode::Normal,
             show_popup: false,
             modal_type: ModalKind::UnderLine,
-            input: String::from(""),
+            input: textarea,
         })
     }
 
@@ -95,14 +100,32 @@ impl State {
     }
 
     pub fn rename(&mut self) {
-        self.show_popup = true;
+        self.start_editing();
         self.modal_type = ModalKind::UnderLine;
-        self.mode = Mode::Insert;
     }
 
-    pub fn exit_insert_mode(&mut self) {
-        self.show_popup = false;
-        self.modal_type = ModalKind::UnderLine;
+    fn start_editing(&mut self) {
+        self.mode = Mode::Insert;
+        self.show_popup = true;
+        self.to_default_input();
+    }
+
+    pub fn stop_editing(&mut self) {
+        self.to_default_input();
         self.mode = Mode::Normal;
+        self.show_popup = false;
+    }
+
+    pub fn push_message(&mut self) {
+        let input_value = self.input.lines().join("");
+        // logic for push
+        self.to_default_input();
+        self.mode = Mode::Normal;
+    }
+
+    fn to_default_input(&mut self) {
+        let mut textarea = TextArea::default();
+        textarea.set_cursor_line_style(Style::default());
+        self.input = textarea;
     }
 }

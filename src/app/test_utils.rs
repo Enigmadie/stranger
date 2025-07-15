@@ -1,4 +1,5 @@
 use std::{collections::HashMap, path::PathBuf};
+use tui_textarea::TextArea;
 
 use crate::app::{
     model::file_entry::{FileEntry, FileVariant},
@@ -6,7 +7,7 @@ use crate::app::{
     ui::modal::ModalKind,
 };
 
-pub fn create_test_state() -> State {
+pub fn create_test_state() -> State<'static> {
     let mut positions_map: HashMap<PathBuf, usize> = HashMap::new();
     let current_dir = PathBuf::from("/src/ui/tests");
 
@@ -31,6 +32,6 @@ pub fn create_test_state() -> State {
         show_popup: false,
         modal_type: ModalKind::UnderLine,
         positions_map,
-        input: String::from(""),
+        input: TextArea::default(),
     }
 }
