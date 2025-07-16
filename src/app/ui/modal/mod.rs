@@ -1,5 +1,5 @@
 use crate::app::{
-    config::constants::ui::{COLUMN_PERCENTAGE, FOOTER_HEIGHT, HEADER_HEIGHT},
+    config::constants::ui::{COLUMN_PERCENTAGE, HEADER_HEIGHT},
     model::miller::positions::get_position,
     state::State,
 };
@@ -7,8 +7,7 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Style},
-    text::Text,
-    widgets::{Block, Borders, Clear, Paragraph, Widget},
+    widgets::{Block, Borders, Clear, Widget},
 };
 
 #[derive(Debug)]
@@ -17,11 +16,11 @@ pub enum ModalKind {
     // Custom { frame: ModalFrame },
 }
 
-trait DefaultRect {
+trait _DefaultRect {
     fn underline_default() -> Rect;
 }
 
-impl DefaultRect for Rect {
+impl _DefaultRect for Rect {
     fn underline_default() -> Rect {
         Rect {
             x: 10,
@@ -38,7 +37,7 @@ pub struct Modal<'a> {
 }
 
 impl<'a> Widget for Modal<'a> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
+    fn render(self, _area: Rect, buf: &mut Buffer) {
         match self.state.modal_type {
             ModalKind::UnderLine => {
                 let (x, y) = self.get_underline_pos();

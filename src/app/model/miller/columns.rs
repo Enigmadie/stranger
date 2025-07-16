@@ -31,21 +31,6 @@ impl MillerColumns {
                 (None, vec![])
             };
 
-        // let mut millerColumnsMap: HashMap<PathBuf, usize> = HashMap::new();
-        //
-        // millerColumnsMap
-        //     .entry(current_dir.to_path_buf())
-        //     .and_modify(|e| *e = 0) //temp
-        //     .or_insert(0);
-        //
-        // if let Some(parent) = parent_dir {
-        //     millerColumnsMap
-        //         .entry(parent.to_path_buf())
-        //         .and_modify(|e| *e = 0) //temp
-        //         .or_insert(0);
-        // }
-
-        // let child_dir: Option
         Ok(Self {
             files: [parent_dir_files, selected_dir_files, child_dir_files],
             dirs: [

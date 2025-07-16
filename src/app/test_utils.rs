@@ -33,5 +33,6 @@ pub fn create_test_state() -> State<'static> {
         modal_type: ModalKind::UnderLine,
         positions_map,
         input: TextArea::default(),
+        err_msg: None,
     }
 }
