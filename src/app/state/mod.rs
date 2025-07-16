@@ -61,7 +61,7 @@ impl<'a> State<'a> {
         if let Some(parent) = &self.dirs[0] {
             self.current_dir = parent.to_path_buf();
             let position_id = get_position(&self.positions_map, &self.current_dir);
-            let _ = self.nagivate(position_id);
+            let _ = self.refresh(position_id);
         }
         Ok(())
     }
@@ -70,7 +70,7 @@ impl<'a> State<'a> {
         if let Some(child) = &self.dirs[2] {
             self.current_dir = child.to_path_buf();
             let position_id = get_position(&self.positions_map, &self.current_dir);
-            let _ = self.nagivate(position_id);
+            let _ = self.refresh(position_id);
         }
         Ok(())
     }
@@ -80,7 +80,7 @@ impl<'a> State<'a> {
         let new_position_id = position_id.saturating_sub(1);
 
         update_dir_position(&mut self.positions_map, &self.current_dir, new_position_id);
-        let _ = self.nagivate(new_position_id);
+        let _ = self.refresh(new_position_id);
         Ok(())
     }
 
@@ -89,12 +89,12 @@ impl<'a> State<'a> {
         if position_id < self.files[1].len().saturating_sub(1) {
             let new_position_id = position_id + 1;
             update_dir_position(&mut self.positions_map, &self.current_dir, new_position_id);
-            let _ = self.nagivate(new_position_id);
+            let _ = self.refresh(new_position_id);
         }
         Ok(())
     }
 
-    fn nagivate(&mut self, new_pos_id: usize) -> io::Result<()> {
+    fn refresh(&mut self, new_pos_id: usize) -> io::Result<()> {
         let miller_columns = MillerColumns::build_columns(&self.current_dir, new_pos_id)?;
         self.files = miller_columns.files;
         self.dirs = miller_columns.dirs;
@@ -103,8 +103,11 @@ impl<'a> State<'a> {
     }
 
     pub fn rename(&mut self) {
-        self.start_editing();
-        self.modal_type = ModalKind::UnderLine;
+        let includes_files = MillerColumns::check_is_current_dir_is_not_empty(&self.files[1]);
+        if includes_files {
+            self.start_editing();
+            self.modal_type = ModalKind::UnderLine;
+        }
     }
 
     fn start_editing(&mut self) {
@@ -125,15 +128,15 @@ impl<'a> State<'a> {
         if let Some(file) = current_file {
             let full_path = build_full_path(&self.current_dir, file);
             let _ = rename_file(&full_path, input_value);
+            let positiond_id = get_position(&self.positions_map, &self.current_dir);
+            let _ = self.refresh(positiond_id);
         } else {
             self.err_msg = Some(format!(
                 "Failed to update file: {}",
                 self.current_dir.display()
             ));
         }
-        // logic for push
-        self.setup_default_input();
-        self.mode = Mode::Normal;
+        self.stop_editing();
     }
 
     fn setup_default_input(&mut self) {

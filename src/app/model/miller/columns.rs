@@ -77,4 +77,8 @@ impl MillerColumns {
             None => Ok(vec![]),
         }
     }
+
+    pub fn check_is_current_dir_is_not_empty(files: &[FileEntry]) -> bool {
+        !files.is_empty()
+    }
 }
