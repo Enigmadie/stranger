@@ -1,0 +1,71 @@
+use crate::app::{
+    model::{
+        file_entry::{build_full_path, get_current_file},
+        fs::{create_dir, create_file, rename_file},
+        miller::{columns::MillerColumns, positions::get_position},
+    },
+    state::State,
+    ui::modal::{ModalKind, UnderLineModalAction},
+};
+
+pub trait Modal {
+    fn add(&mut self);
+    fn rename(&mut self);
+    fn commit(&mut self);
+}
+
+impl<'a> Modal for State<'a> {
+    fn add(&mut self) {
+        let includes_files = MillerColumns::check_is_current_dir_is_not_empty(&self.files[1]);
+        if includes_files {
+            self.start_editing();
+            self.modal_type = ModalKind::UnderLine {
+                action: UnderLineModalAction::Edit,
+            };
+        }
+    }
+
+    fn rename(&mut self) {
+        self.start_editing();
+        self.modal_type = ModalKind::UnderLine {
+            action: UnderLineModalAction::Add,
+        };
+    }
+
+    fn commit(&mut self) {
+        let input_value = self.input.lines().join("");
+
+        match &self.modal_type {
+            ModalKind::UnderLine { action } => match action {
+                UnderLineModalAction::Add => {
+                    let is_dir = self.input.lines().last().is_some_and(|e| e.ends_with('/'));
+
+                    if is_dir {
+                        let _ = create_dir(input_value);
+                    } else {
+                        let _ = create_file(input_value);
+                    }
+                    let _ = self.refresh(0);
+                }
+                UnderLineModalAction::Edit => {
+                    let current_file =
+                        get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
+                    if let Some(file) = current_file {
+                        let full_path = build_full_path(&self.current_dir, file);
+                        let _ = rename_file(&full_path, input_value);
+                        let positiond_id = get_position(&self.positions_map, &self.current_dir);
+                        let _ = self.refresh(positiond_id);
+                    } else {
+                        self.err_msg = Some(format!(
+                            "Failed to update file: {}",
+                            self.current_dir.display()
+                        ));
+                    }
+                }
+            },
+        };
+
+        self.stop_editing();
+        self.setup_default_input();
+    }
+}

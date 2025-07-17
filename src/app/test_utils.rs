@@ -5,6 +5,7 @@ use crate::app::{
     model::file_entry::{FileEntry, FileVariant},
     state::{Mode, State},
     ui::modal::ModalKind,
+    ui::modal::UnderLineModalAction,
 };
 
 pub fn create_test_state() -> State<'static> {
@@ -30,7 +31,9 @@ pub fn create_test_state() -> State<'static> {
         ],
         mode: Mode::Normal,
         show_popup: false,
-        modal_type: ModalKind::UnderLine,
+        modal_type: ModalKind::UnderLine {
+            action: UnderLineModalAction::Add,
+        },
         positions_map,
         input: TextArea::default(),
         err_msg: None,

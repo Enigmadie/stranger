@@ -8,7 +8,7 @@ pub mod state;
 pub mod test_utils;
 pub mod ui;
 
-use crate::app::state::Mode;
+use crate::app::state::{Modal, Mode, Navigation};
 
 use self::state::State;
 
@@ -67,11 +67,17 @@ impl<'a> App<'a> {
                         self.state.rename();
                         self.needs_redraw = true;
                     }
+                    KeyCode::Char('a') => {
+                        self.state.add();
+                        self.needs_redraw = true;
+                    }
                     _ => {}
                 },
                 Mode::Insert => match key.code {
                     KeyCode::Enter => {
-                        self.state.push_message();
+                        if self.state.show_popup {
+                            self.state.commit();
+                        }
                         self.needs_redraw = true;
                     }
                     KeyCode::Esc => {

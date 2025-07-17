@@ -11,8 +11,14 @@ use ratatui::{
 };
 
 #[derive(Debug)]
+pub enum UnderLineModalAction {
+    Add,
+    Edit,
+}
+
+#[derive(Debug)]
 pub enum ModalKind {
-    UnderLine,
+    UnderLine { action: UnderLineModalAction },
     // Custom { frame: ModalFrame },
 }
 
@@ -38,8 +44,8 @@ pub struct Modal<'a> {
 
 impl<'a> Widget for Modal<'a> {
     fn render(self, _area: Rect, buf: &mut Buffer) {
-        match self.state.modal_type {
-            ModalKind::UnderLine => {
+        match &self.state.modal_type {
+            ModalKind::UnderLine { action } => {
                 let (x, y) = self.get_underline_pos();
 
                 let modal_area = Rect {
@@ -54,25 +60,22 @@ impl<'a> Widget for Modal<'a> {
                 let backdrop = Block::default().style(Style::default());
                 backdrop.render(modal_area, buf);
 
-                // let input = Input {
-                //     state: InputState {
-                //         value: state.input.clone(),
-                //         cursor: state.cursor,
-                //     },
-                //     theme: Default::default(),
-                // };
-
                 let mut input = self.state.input.clone();
+
+                let title = match action {
+                    UnderLineModalAction::Add => "Add File",
+                    UnderLineModalAction::Edit => "Rename File",
+                };
 
                 input.set_block(
                     Block::default()
                         .borders(Borders::ALL)
-                        .title("Rename File")
+                        .title(title)
                         .style(Style::default().fg(Color::White)),
                 );
 
                 if self.state.show_popup {
-                    self.state.input.render(modal_area, buf);
+                    input.render(modal_area, buf);
                 }
             }
         }

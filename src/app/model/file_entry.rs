@@ -1,4 +1,7 @@
-use std::{collections::HashMap, io, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use crate::app::model::miller::positions::get_position;
 
@@ -14,20 +17,16 @@ pub struct FileEntry {
     pub variant: FileVariant,
 }
 
-pub fn rename_file(path: &PathBuf, new_value: String) -> io::Result<()> {
-    std::fs::rename(path, new_value)
-}
-
 pub fn get_current_file<'a>(
     positions: &HashMap<PathBuf, usize>,
     dir: &PathBuf,
     files: &'a [FileEntry],
 ) -> Option<&'a FileEntry> {
-    let position_id = get_position(&positions, &dir);
+    let position_id = get_position(positions, dir);
     files.get(position_id)
 }
 
-pub fn build_full_path(dir: &PathBuf, file: &FileEntry) -> PathBuf {
+pub fn build_full_path(dir: &Path, file: &FileEntry) -> PathBuf {
     dir.join(&file.name)
 }
 
