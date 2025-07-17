@@ -16,6 +16,13 @@ pub trait Modal {
 
 impl<'a> Modal for State<'a> {
     fn add(&mut self) {
+        self.start_editing();
+        self.modal_type = ModalKind::UnderLine {
+            action: UnderLineModalAction::Add,
+        };
+    }
+
+    fn rename(&mut self) {
         let includes_files = MillerColumns::check_is_current_dir_is_not_empty(&self.files[1]);
         if includes_files {
             self.start_editing();
@@ -23,13 +30,6 @@ impl<'a> Modal for State<'a> {
                 action: UnderLineModalAction::Edit,
             };
         }
-    }
-
-    fn rename(&mut self) {
-        self.start_editing();
-        self.modal_type = ModalKind::UnderLine {
-            action: UnderLineModalAction::Add,
-        };
     }
 
     fn commit(&mut self) {
