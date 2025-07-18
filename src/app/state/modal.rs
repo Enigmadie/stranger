@@ -1,6 +1,6 @@
 use crate::app::{
     model::{
-        file_entry::{build_full_path, get_current_file},
+        file::{build_full_path, get_current_file},
         fs::{create_dir, create_file, rename_file},
         miller::{columns::MillerColumns, positions::get_position},
     },

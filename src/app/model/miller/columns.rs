@@ -2,7 +2,7 @@ use std::io::{self};
 use std::path::{Path, PathBuf};
 
 use crate::app::config::constants::model::NUM_COLUMNS;
-use crate::app::model::file_entry::{FileEntry, FileVariant};
+use crate::app::model::file::{calculate_file_size, count_dir_entries, FileEntry, FileVariant};
 
 #[derive(Debug)]
 pub struct MillerColumns {
@@ -20,7 +20,7 @@ impl MillerColumns {
 
         let (child_dir, child_dir_files) =
             if let Some(first_entry) = selected_dir_files.get(position_id) {
-                if first_entry.variant == FileVariant::Directory {
+                if matches!(first_entry.variant, FileVariant::Directory { .. }) {
                     let child_path = current_dir.join(&first_entry.name);
                     let child_files = Self::parse_dir_files(Some(&child_path))?;
                     (Some(child_path), child_files)
@@ -49,9 +49,11 @@ impl MillerColumns {
                         let e = entry.ok()?;
                         let metadata = e.metadata().ok()?;
                         let variant = if metadata.is_dir() {
-                            FileVariant::Directory
+                            let len = count_dir_entries(e.path());
+                            FileVariant::Directory { len }
                         } else {
-                            FileVariant::File
+                            let size = calculate_file_size(metadata);
+                            FileVariant::File { size }
                         };
 
                         Some(FileEntry {
@@ -63,8 +65,8 @@ impl MillerColumns {
 
                 entries.sort_by(|a, b| {
                     match (
-                        a.variant == FileVariant::Directory,
-                        b.variant == FileVariant::Directory,
+                        matches!(a.variant, FileVariant::Directory { .. }),
+                        matches!(b.variant, FileVariant::Directory { .. }),
                     ) {
                         (true, false) => std::cmp::Ordering::Less,
                         (false, true) => std::cmp::Ordering::Greater,

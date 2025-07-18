@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 use tui_textarea::TextArea;
 
 use crate::app::{
-    model::file_entry::{FileEntry, FileVariant},
+    model::file::{FileEntry, FileVariant},
     state::{Mode, State},
     ui::modal::ModalKind,
     ui::modal::UnderLineModalAction,
@@ -20,7 +20,7 @@ pub fn create_test_state() -> State<'static> {
             vec![],
             vec![FileEntry {
                 name: "file1".into(),
-                variant: FileVariant::File,
+                variant: FileVariant::File { size: 10 },
             }],
             vec![],
         ],

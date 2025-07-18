@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use tui_textarea::TextArea;
 
 use crate::app::config::constants::model::NUM_COLUMNS;
-use crate::app::model::file_entry::FileEntry;
+use crate::app::model::file::FileEntry;
 use crate::app::model::miller::columns::MillerColumns;
 use crate::app::model::miller::positions::parse_path_positions;
 use crate::app::ui::modal::{ModalKind, UnderLineModalAction};

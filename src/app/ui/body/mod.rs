@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::app::{
     config::constants::ui::{COLUMN_PERCENTAGE, THIRD_COLUMN_PERCENTAGE},
-    model::{file_entry::FileVariant, miller::positions::get_position},
+    model::{file::FileVariant, miller::positions::get_position},
     state::State,
 };
 struct ColumnsWidget<'a> {
@@ -70,11 +70,19 @@ impl Body {
                     dir.iter()
                         .enumerate()
                         .map(|(row_id, file)| {
-                            let mut list_item = ListItem::new(file.name.as_str());
+                            let mut list_item = ListItem::new(format!(
+                                "{:<30} {:>10}",
+                                file.name.as_str(),
+                                match file.variant {
+                                    FileVariant::Directory { len } => len.to_string(),
+                                    FileVariant::File { size } => size.to_string(),
+                                }
+                            ));
+                            println!("{:?}", file);
                             let is_selected_column = is_current_column && row_id == position_id;
 
                             list_item = match file.variant {
-                                FileVariant::Directory => {
+                                FileVariant::Directory { .. } => {
                                     if is_selected_column {
                                         list_item.style(
                                             Style::default().bg(Color::Blue).fg(Color::Black),
@@ -83,7 +91,7 @@ impl Body {
                                         list_item.style(Style::default().fg(Color::Blue))
                                     }
                                 }
-                                FileVariant::File => {
+                                FileVariant::File { .. } => {
                                     if is_selected_column {
                                         list_item.style(
                                             Style::default().bg(Color::White).fg(Color::Black),
