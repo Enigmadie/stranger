@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{
-    config::constants::ui::{COLUMN_PERCENTAGE, THIRD_COLUMN_PERCENTAGE},
+    config::constants::ui::{COLUMN_PERCENTAGE, FIRST_COLUMN_PERCENTAGE},
     model::{file::FileVariant, miller::positions::get_position},
     state::State,
 };
@@ -28,8 +28,8 @@ impl<'a> Widget for ColumnsWidget<'a> {
             .iter()
             .enumerate()
             .map(|(i, _)| {
-                if i >= 2 {
-                    Constraint::Percentage(THIRD_COLUMN_PERCENTAGE)
+                if i == 0 {
+                    Constraint::Percentage(FIRST_COLUMN_PERCENTAGE)
                 } else {
                     Constraint::Percentage(COLUMN_PERCENTAGE)
                 }
@@ -71,14 +71,13 @@ impl Body {
                         .enumerate()
                         .map(|(row_id, file)| {
                             let mut list_item = ListItem::new(format!(
-                                "{:<30} {:>10}",
+                                "{:<30} {:>24}",
                                 file.name.as_str(),
                                 match file.variant {
                                     FileVariant::Directory { len } => len.to_string(),
                                     FileVariant::File { size } => size.to_string(),
                                 }
                             ));
-                            println!("{:?}", file);
                             let is_selected_column = is_current_column && row_id == position_id;
 
                             list_item = match file.variant {
