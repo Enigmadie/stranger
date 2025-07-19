@@ -10,7 +10,9 @@ use crate::app::{
     config::constants::ui::{COLUMN_PERCENTAGE, FIRST_COLUMN_PERCENTAGE},
     model::{file::FileVariant, miller::positions::get_position},
     state::State,
+    utils::format_bytes,
 };
+
 struct ColumnsWidget<'a> {
     lists: Vec<List<'a>>,
 }
@@ -75,7 +77,7 @@ impl Body {
                                 file.name.as_str(),
                                 match file.variant {
                                     FileVariant::Directory { len } => len.to_string(),
-                                    FileVariant::File { size } => size.to_string(),
+                                    FileVariant::File { size } => format_bytes(size),
                                 }
                             ));
                             let is_selected_column = is_current_column && row_id == position_id;

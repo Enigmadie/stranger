@@ -7,6 +7,7 @@ pub mod model;
 pub mod state;
 pub mod test_utils;
 pub mod ui;
+pub mod utils;
 
 use crate::app::state::{Modal, Mode, Navigation};
 
