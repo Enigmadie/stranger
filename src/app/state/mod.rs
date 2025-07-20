@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use tui_textarea::TextArea;
 
 use crate::app::config::constants::model::NUM_COLUMNS;
-use crate::app::model::file::FileEntry;
 use crate::app::model::miller::columns::MillerColumns;
+use crate::app::model::miller::entries::{DirEntry, FileEntry};
 use crate::app::model::miller::positions::parse_path_positions;
 use crate::app::ui::modal::{ModalKind, UnderLineModalAction};
 pub mod modal;
@@ -26,7 +26,7 @@ pub enum Mode {
 pub struct State<'a> {
     pub current_dir: PathBuf,
     pub files: [Vec<FileEntry>; NUM_COLUMNS],
-    pub dirs: [Option<PathBuf>; NUM_COLUMNS],
+    pub dirs: [DirEntry; NUM_COLUMNS],
     pub positions_map: HashMap<PathBuf, usize>,
     pub mode: Mode,
     pub show_popup: bool,

@@ -14,7 +14,7 @@ pub trait Navigation {
 
 impl<'a> Navigation for State<'a> {
     fn navigate_to_parent(&mut self) -> io::Result<()> {
-        if let Some(parent) = &self.dirs[0] {
+        if let Some(parent) = &self.dirs[0].dir_name {
             self.current_dir = parent.to_path_buf();
             let position_id = get_position(&self.positions_map, &self.current_dir);
             let _ = self.refresh(position_id);
@@ -23,7 +23,7 @@ impl<'a> Navigation for State<'a> {
     }
 
     fn navigate_to_child(&mut self) -> io::Result<()> {
-        if let Some(child) = &self.dirs[2] {
+        if let Some(child) = &self.dirs[2].dir_name {
             self.current_dir = child.to_path_buf();
             let position_id = get_position(&self.positions_map, &self.current_dir);
             let _ = self.refresh(position_id);

@@ -1,11 +1,11 @@
 use crate::app::{
     model::{
         file::{build_full_path, get_current_file},
-        fs::{create_dir, create_file, rename_file},
         miller::{columns::MillerColumns, positions::get_position},
     },
     state::State,
     ui::modal::{ModalKind, UnderLineModalAction},
+    utils::fs::{create_dir, create_file, rename_file},
 };
 
 pub trait Modal {

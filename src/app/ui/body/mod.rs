@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::app::{
     config::constants::ui::{COLUMN_PERCENTAGE, FIRST_COLUMN_PERCENTAGE},
-    model::{file::FileVariant, miller::positions::get_position},
+    model::miller::{entries::FileVariant, positions::get_position},
     state::State,
     utils::format_bytes,
 };
@@ -61,6 +61,7 @@ impl Body {
                 let is_parent_column = col_id == 0;
                 let is_current_column = col_id == 1;
                 let is_child_column = col_id >= 2;
+                let dir_entry = &state.dirs[col_id];
 
                 let list_items: Vec<ListItem> = if is_parent_column && dir.is_empty() {
                     // if parent dir is empty
@@ -72,14 +73,22 @@ impl Body {
                     dir.iter()
                         .enumerate()
                         .map(|(row_id, file)| {
-                            let mut list_item = ListItem::new(format!(
-                                "{:<30} {:>24}",
-                                file.name.as_str(),
-                                match file.variant {
-                                    FileVariant::Directory { len } => len.to_string(),
-                                    FileVariant::File { size } => format_bytes(size),
-                                }
-                            ));
+                            let formatted_row = if dir_entry.with_meta {
+                                format!(
+                                    "{:<30} {:>24}",
+                                    file.name.as_str(),
+                                    match file.variant {
+                                        FileVariant::Directory { len } =>
+                                            len.map(|e| e.to_string()).unwrap_or_default(),
+                                        FileVariant::File { size } =>
+                                            size.map(format_bytes).unwrap_or_default(),
+                                    }
+                                )
+                            } else {
+                                file.name.clone()
+                            };
+
+                            let mut list_item = ListItem::new(formatted_row);
                             let is_selected_column = is_current_column && row_id == position_id;
 
                             list_item = match file.variant {
