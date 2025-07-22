@@ -1,5 +1,5 @@
 use std::io::{self};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::app::config::constants::model::NUM_COLUMNS;
 use crate::app::model::file::{calculate_file_size, count_dir_entries};

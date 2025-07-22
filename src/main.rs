@@ -1,12 +1,12 @@
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
+    event::EnableMouseCapture,
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{enable_raw_mode, EnterAlternateScreen},
 };
 use ratatui::prelude::*;
 use std::io::{self, stdout};
 
-use stranger::App;
+use stranger::{app::cleanup_terminal, App};
 
 fn main() -> io::Result<()> {
     enable_raw_mode()?;
@@ -18,18 +18,7 @@ fn main() -> io::Result<()> {
     let mut app = App::new().unwrap();
     app.run(&mut terminal)?;
 
-    cleanup_terminal(&mut terminal)?;
+    cleanup_terminal()?;
 
-    Ok(())
-}
-
-fn cleanup_terminal(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> io::Result<()> {
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
     Ok(())
 }

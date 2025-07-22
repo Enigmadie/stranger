@@ -1,6 +1,10 @@
+use crossterm::event::DisableMouseCapture;
+use crossterm::execute;
+use crossterm::terminal::{disable_raw_mode, LeaveAlternateScreen};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::prelude::*;
 use std::io::{self, Stdout};
+use std::time::Duration;
 
 pub mod config;
 pub mod model;
@@ -31,11 +35,13 @@ impl<'a> App<'a> {
 
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
         while !self.exit {
+            if event::poll(Duration::from_millis(50))? {
+                self.handle_events()?;
+            }
             if self.needs_redraw {
                 terminal.draw(|f| ui::render(&self.state, f))?;
                 self.needs_redraw = false;
             }
-            let _ = self.handle_events();
         }
         Ok(())
     }
@@ -101,4 +107,20 @@ impl<'a> App<'a> {
         }
         Ok(())
     }
+}
+
+impl Drop for App<'_> {
+    fn drop(&mut self) {
+        // Ensure terminal cleanup on drop
+        if let Err(e) = cleanup_terminal() {
+            eprintln!("Failed to cleanup terminal: {}", e);
+        }
+    }
+}
+
+pub fn cleanup_terminal() -> io::Result<()> {
+    disable_raw_mode()?;
+    execute!(std::io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
+    Terminal::new(CrosstermBackend::new(std::io::stdout()))?.show_cursor()?;
+    Ok(())
 }

@@ -47,7 +47,7 @@ pub struct Footer;
 impl Header {
     fn build<'a>(state: &'a State, _area: Rect) -> impl Widget + 'a {
         Paragraph::new(state.current_dir.display().to_string())
-            .block(Block::default().borders(Borders::BOTTOM))
+            .block(Block::default())
             .alignment(Alignment::Left)
     }
 }
