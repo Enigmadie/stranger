@@ -4,13 +4,17 @@ pub mod modal;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     prelude::{Frame, Rect},
+    style::{Color, Style, Stylize},
+    text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
 use crate::app::{
     config::constants::ui::{FOOTER_HEIGHT, HEADER_HEIGHT},
+    model::file::get_current_file,
     state::State,
     ui::{body::Body, modal::Modal},
+    utils::fs::whoami_info,
 };
 
 pub fn render(state: &State, frame: &mut Frame<'_>) {
@@ -46,7 +50,21 @@ pub struct Footer;
 
 impl Header {
     fn build<'a>(state: &'a State, _area: Rect) -> impl Widget + 'a {
-        Paragraph::new(state.current_dir.display().to_string())
+        let dir = state.current_dir.display().to_string();
+        let file = get_current_file(&state.positions_map, &state.current_dir, &state.files[1])
+            .map(|e| e.name.to_owned())
+            .unwrap_or(String::from(""));
+
+        let user_info = whoami_info().unwrap_or_else(|_| String::from("unknown@localhost"));
+
+        let text = Line::from(vec![
+            Span::styled(user_info, Style::default().fg(Color::Green).bold()),
+            Span::raw(" "),
+            Span::styled(format!("{}/", dir), Style::default().fg(Color::Blue).bold()),
+            Span::raw(file).bold(),
+        ]);
+
+        Paragraph::new(text)
             .block(Block::default())
             .alignment(Alignment::Left)
     }
