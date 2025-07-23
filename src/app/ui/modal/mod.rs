@@ -1,5 +1,5 @@
 use crate::app::{
-    config::constants::ui::{COLUMN_PERCENTAGE, HEADER_HEIGHT},
+    config::constants::ui::{FIRST_COLUMN_PERCENTAGE, HEADER_HEIGHT},
     model::miller::positions::get_position,
     state::State,
 };
@@ -89,7 +89,7 @@ impl<'a> Modal<'a> {
 
     pub fn get_underline_pos(&self) -> (u16, u16) {
         let body_width = self.area.width;
-        let x = (body_width as f32 * (COLUMN_PERCENTAGE as f32 / 100.0)) as u16;
+        let x = (body_width as f32 * (FIRST_COLUMN_PERCENTAGE as f32 / 100.0)) as u16;
 
         let position_id = get_position(&self.state.positions_map, &self.state.current_dir) as u16;
         let item_height = 1;
@@ -99,7 +99,7 @@ impl<'a> Modal<'a> {
 
     pub fn get_underline_size(&self) -> (u16, u16) {
         let body_width = self.area.width;
-        let x = (body_width as f32 * (COLUMN_PERCENTAGE as f32 / 100.0)) as u16;
+        let x = (body_width as f32 * (FIRST_COLUMN_PERCENTAGE as f32 / 100.0)) as u16;
 
         let position_id = get_position(&self.state.positions_map, &self.state.current_dir) as u16;
         let item_height = 1;
