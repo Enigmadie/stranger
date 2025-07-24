@@ -14,6 +14,7 @@ pub mod ui;
 pub mod utils;
 
 use crate::app::state::{Modal, Mode, Navigation};
+use crate::app::utils::config_parser::load_config;
 
 use self::state::State;
 
@@ -26,8 +27,10 @@ pub struct App<'a> {
 
 impl<'a> App<'a> {
     pub fn new() -> io::Result<Self> {
+        let config = load_config();
+
         Ok(App {
-            state: State::new()?,
+            state: State::new(config)?,
             exit: false,
             needs_redraw: true,
         })
@@ -67,7 +70,7 @@ impl<'a> App<'a> {
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('l') | KeyCode::Right => {
-                        let _ = self.state.navigate_to_child();
+                        let _ = self.state.navigate_to_child_or_exec();
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('r') => {

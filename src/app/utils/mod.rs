@@ -1,3 +1,4 @@
+pub mod config_parser;
 pub mod fs;
 const KB: f64 = 1024.0;
 const MB: f64 = KB * 1024.0;

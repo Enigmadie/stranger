@@ -1,4 +1,8 @@
-use std::{io, path::PathBuf, process::Command};
+use std::{
+    io,
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 
 pub fn rename_file(path: &PathBuf, new_value: String) -> io::Result<()> {
     std::fs::rename(path, new_value)
@@ -28,4 +32,22 @@ pub fn whoami_info() -> io::Result<String> {
         .unwrap_or_else(|_| String::from("localhost"));
 
     Ok(format!("{}@{}", username, hostname))
+}
+
+pub fn exec(program: &String, arg: &[&str]) {
+    let status = Command::new(program)
+        .args(arg)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .expect("couldn't run nvim");
+
+    if status.success() {
+        println!("nvim running");
+    } else {
+        eprintln!("with error: {:?}", status);
+    }
+
+    println!("coming back from app");
 }

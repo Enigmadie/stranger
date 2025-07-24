@@ -7,9 +7,11 @@ use tui_textarea::TextArea;
 
 use crate::app::config::constants::model::NUM_COLUMNS;
 use crate::app::model::miller::columns::MillerColumns;
-use crate::app::model::miller::entries::{DirEntry, FileEntry};
-use crate::app::model::miller::positions::parse_path_positions;
+use crate::app::model::miller::entries::{DirEntry, FileEntry, FileVariant};
+use crate::app::model::miller::positions::{get_position, parse_path_positions};
 use crate::app::ui::modal::{ModalKind, UnderLineModalAction};
+use crate::app::utils::config_parser::default_config::Config;
+use crate::app::utils::fs::exec;
 pub mod modal;
 pub use modal::Modal;
 pub mod navigation;
@@ -33,10 +35,11 @@ pub struct State<'a> {
     pub modal_type: ModalKind,
     pub input: TextArea<'a>,
     pub err_msg: Option<String>, // TODO
+    pub config: Config,
 }
 
 impl<'a> State<'a> {
-    pub fn new() -> io::Result<Self> {
+    pub fn new(config: Config) -> io::Result<Self> {
         let current_dir = env::current_dir()?;
 
         let miller_columns = MillerColumns::build_columns(&current_dir, 0)?;
@@ -55,7 +58,23 @@ impl<'a> State<'a> {
             },
             input: textarea,
             err_msg: None,
+            config,
         })
+    }
+
+    pub fn navigate_to_child_or_exec(&mut self) -> io::Result<()> {
+        let position_id = get_position(&self.positions_map, &self.current_dir);
+        let file = &self.files[1][position_id];
+        if let FileVariant::File { .. } = file.variant {
+            self.execute_file(file.name.clone());
+        } else {
+            self.navigate_to_child()?;
+        }
+        Ok(())
+    }
+
+    pub fn execute_file(&mut self, file_name: String) {
+        exec(&self.config.common.editor, &[&file_name])
     }
 
     pub fn refresh(&mut self, new_pos_id: usize) -> io::Result<()> {

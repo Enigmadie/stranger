@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum FileVariant {
     Directory { len: Option<u64> },
     File { size: Option<u64> },

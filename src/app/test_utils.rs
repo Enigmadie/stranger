@@ -5,6 +5,7 @@ use crate::app::{
     model::miller::entries::{DirEntry, FileEntry, FileVariant},
     state::{Mode, State},
     ui::modal::{ModalKind, UnderLineModalAction},
+    utils::config_parser::default_config::Config,
 };
 
 pub fn create_test_state() -> State<'static> {
@@ -45,5 +46,6 @@ pub fn create_test_state() -> State<'static> {
         positions_map,
         input: TextArea::default(),
         err_msg: None,
+        config: Config::default(),
     }
 }
