@@ -1,8 +1,15 @@
 use std::{
-    io,
+    io::{self, stdout},
     path::PathBuf,
     process::{Command, Stdio},
 };
+
+use crossterm::{
+    cursor::Show,
+    execute,
+    terminal::{enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
+};
+use std::io::Result as IoResult;
 
 pub fn rename_file(path: &PathBuf, new_value: String) -> io::Result<()> {
     std::fs::rename(path, new_value)
@@ -34,20 +41,24 @@ pub fn whoami_info() -> io::Result<String> {
     Ok(format!("{}@{}", username, hostname))
 }
 
-pub fn exec(program: &String, arg: &[&str]) {
-    let status = Command::new(program)
+pub fn exec(program: &String, arg: &[&str]) -> IoResult<()> {
+    let _ = Command::new(program)
         .args(arg)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
-        .expect("couldn't run nvim");
+        .expect("couldn't run program");
 
-    if status.success() {
-        println!("nvim running");
-    } else {
-        eprintln!("with error: {:?}", status);
-    }
+    enable_raw_mode()?;
 
-    println!("coming back from app");
+    execute!(
+        stdout(),
+        EnterAlternateScreen,
+        Clear(ClearType::All),
+        Show,
+        crossterm::cursor::MoveTo(0, 0)
+    )?;
+
+    Ok(())
 }

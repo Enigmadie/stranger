@@ -1,12 +1,12 @@
 use crate::app::{
-    config::constants::ui::{FIRST_COLUMN_PERCENTAGE, HEADER_HEIGHT},
+    config::constants::ui::{COLUMN_PERCENTAGE, FIRST_COLUMN_PERCENTAGE, HEADER_HEIGHT},
     model::miller::positions::get_position,
     state::State,
 };
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Color, Style},
+    style::{Color, Style, Stylize},
     widgets::{Block, Borders, Clear, Widget},
 };
 
@@ -47,12 +47,13 @@ impl<'a> Widget for Modal<'a> {
         match &self.state.modal_type {
             ModalKind::UnderLine { action } => {
                 let (x, y) = self.get_underline_pos();
+                let (width, _) = self.get_underline_size();
 
                 let modal_area = Rect {
                     x,
                     y,
                     height: 3,
-                    width: x,
+                    width,
                 };
 
                 Clear.render(modal_area, buf);
@@ -71,7 +72,7 @@ impl<'a> Widget for Modal<'a> {
                     Block::default()
                         .borders(Borders::ALL)
                         .title(title)
-                        .style(Style::default().fg(Color::White)),
+                        .style(Style::default().fg(Color::LightGreen).bold()),
                 );
 
                 if self.state.show_popup {
@@ -99,12 +100,12 @@ impl<'a> Modal<'a> {
 
     pub fn get_underline_size(&self) -> (u16, u16) {
         let body_width = self.area.width;
-        let x = (body_width as f32 * (FIRST_COLUMN_PERCENTAGE as f32 / 100.0)) as u16;
+        let width = (body_width as f32 * (COLUMN_PERCENTAGE as f32 / 100.0)) as u16;
 
         let position_id = get_position(&self.state.positions_map, &self.state.current_dir) as u16;
         let item_height = 1;
-        let y = HEADER_HEIGHT + (position_id * item_height);
-        (x, y)
+        let heigth = HEADER_HEIGHT + (position_id * item_height);
+        (width, heigth)
     }
 }
 

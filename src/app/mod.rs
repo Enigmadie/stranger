@@ -1,9 +1,10 @@
+use crossterm::cursor::Show;
 use crossterm::event::DisableMouseCapture;
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, LeaveAlternateScreen};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::prelude::*;
-use std::io::{self, Stdout};
+use std::io::{self, stdout, Stdout};
 use std::time::Duration;
 
 pub mod config;
@@ -42,6 +43,10 @@ impl<'a> App<'a> {
                 self.handle_events()?;
             }
             if self.needs_redraw {
+                if self.state.from_external_app {
+                    terminal.clear()?;
+                    self.state.from_external_app = false;
+                }
                 terminal.draw(|f| ui::render(&self.state, f))?;
                 self.needs_redraw = false;
             }
@@ -123,7 +128,7 @@ impl Drop for App<'_> {
 
 pub fn cleanup_terminal() -> io::Result<()> {
     disable_raw_mode()?;
-    execute!(std::io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
-    Terminal::new(CrosstermBackend::new(std::io::stdout()))?.show_cursor()?;
+    // execute!(std::io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
+    execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture, Show)?;
     Ok(())
 }

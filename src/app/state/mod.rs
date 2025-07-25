@@ -36,6 +36,7 @@ pub struct State<'a> {
     pub input: TextArea<'a>,
     pub err_msg: Option<String>, // TODO
     pub config: Config,
+    pub from_external_app: bool,
 }
 
 impl<'a> State<'a> {
@@ -59,14 +60,16 @@ impl<'a> State<'a> {
             input: textarea,
             err_msg: None,
             config,
+            from_external_app: false,
         })
     }
 
     pub fn navigate_to_child_or_exec(&mut self) -> io::Result<()> {
         let position_id = get_position(&self.positions_map, &self.current_dir);
         let file = &self.files[1][position_id];
+        let file_path = format!("{}/{}", &self.current_dir.to_string_lossy(), file.name);
         if let FileVariant::File { .. } = file.variant {
-            self.execute_file(file.name.clone());
+            self.execute_file(file_path);
         } else {
             self.navigate_to_child()?;
         }
@@ -74,7 +77,8 @@ impl<'a> State<'a> {
     }
 
     pub fn execute_file(&mut self, file_name: String) {
-        exec(&self.config.common.editor, &[&file_name])
+        let _ = exec(&self.config.common.editor, &[&file_name]);
+        self.from_external_app = true;
     }
 
     pub fn refresh(&mut self, new_pos_id: usize) -> io::Result<()> {

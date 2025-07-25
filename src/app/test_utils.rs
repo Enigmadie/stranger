@@ -47,5 +47,6 @@ pub fn create_test_state() -> State<'static> {
         input: TextArea::default(),
         err_msg: None,
         config: Config::default(),
+        from_external_app: false,
     }
 }
