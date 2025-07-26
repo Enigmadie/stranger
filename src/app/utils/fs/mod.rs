@@ -1,6 +1,6 @@
 use std::{
     io::{self, stdout},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
@@ -23,6 +23,13 @@ pub fn create_file(file_name: String) -> io::Result<()> {
 pub fn create_dir(dir_name: String) -> io::Result<()> {
     let _ = std::fs::create_dir(dir_name);
     Ok(())
+}
+
+pub fn copy_file_path(file_path: PathBuf) -> io::Result<()> {
+    let path = PathBuf::from(file_path);
+    if Path::new(file_path).exists() {
+        Some(path) // TODO Copied notification
+    }
 }
 
 pub fn whoami_info() -> io::Result<String> {

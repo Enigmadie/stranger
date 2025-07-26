@@ -48,5 +48,6 @@ pub fn create_test_state() -> State<'static> {
         err_msg: None,
         config: Config::default(),
         from_external_app: false,
+        clipboard: None,
     }
 }

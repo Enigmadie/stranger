@@ -86,6 +86,10 @@ impl<'a> App<'a> {
                         self.state.add();
                         self.needs_redraw = true;
                     }
+                    KeyCode::Char('y') => {
+                        self.state.copy_file();
+                        self.needs_redraw = true;
+                    }
                     _ => {}
                 },
                 Mode::Insert => match key.code {
