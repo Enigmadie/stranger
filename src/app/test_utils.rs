@@ -45,9 +45,9 @@ pub fn create_test_state() -> State<'static> {
         },
         positions_map,
         input: TextArea::default(),
-        err_msg: None,
         config: Config::default(),
         from_external_app: false,
         clipboard: None,
+        notification: None,
     }
 }

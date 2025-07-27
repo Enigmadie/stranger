@@ -25,10 +25,12 @@ pub fn create_dir(dir_name: String) -> io::Result<()> {
     Ok(())
 }
 
-pub fn copy_file_path(file_path: PathBuf) -> io::Result<()> {
-    let path = PathBuf::from(file_path);
-    if Path::new(file_path).exists() {
-        Some(path) // TODO Copied notification
+pub fn copy_file_path(file_path: PathBuf) -> Result<PathBuf, io::Error> {
+    let path = PathBuf::from(&file_path);
+    if Path::new(&file_path).exists() {
+        Ok(path)
+    } else {
+        Err(io::Error::new(io::ErrorKind::NotFound, "File is not exist"))
     }
 }
 

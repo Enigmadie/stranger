@@ -6,14 +6,16 @@ use std::path::PathBuf;
 use tui_textarea::TextArea;
 
 use crate::app::config::constants::model::NUM_COLUMNS;
-use crate::app::model::clipboard::Clipboard;
+use crate::app::model::clipboard::{Clipboard, ClipboardAction};
 use crate::app::model::file::{build_full_path, get_current_file};
 use crate::app::model::miller::columns::MillerColumns;
 use crate::app::model::miller::entries::{DirEntry, FileEntry, FileVariant};
-use crate::app::model::miller::positions::{get_position, parse_path_positions};
+use crate::app::model::miller::positions::parse_path_positions;
+use crate::app::model::notification::Notification;
 use crate::app::ui::modal::{ModalKind, UnderLineModalAction};
 use crate::app::utils::config_parser::default_config::Config;
 use crate::app::utils::fs::{copy_file_path, exec};
+use crate::app::utils::i18n::Lang;
 pub mod modal;
 pub use modal::Modal;
 pub mod navigation;
@@ -36,10 +38,10 @@ pub struct State<'a> {
     pub show_popup: bool,
     pub modal_type: ModalKind,
     pub input: TextArea<'a>,
-    pub err_msg: Option<String>, // TODO
     pub config: Config,
     pub from_external_app: bool,
     pub clipboard: Option<Clipboard>,
+    pub notification: Option<Notification>,
 }
 
 impl<'a> State<'a> {
@@ -61,11 +63,10 @@ impl<'a> State<'a> {
                 action: UnderLineModalAction::Add,
             },
             input: textarea,
-            err_msg: None,
             config,
             from_external_app: false,
             clipboard: None,
-            // notification state
+            notification: None,
         })
     }
 
@@ -87,11 +88,11 @@ impl<'a> State<'a> {
         self.from_external_app = true;
     }
 
-    pub fn refresh(&mut self, new_pos_id: usize) -> io::Result<()> {
+    pub fn reset_state(&mut self, new_pos_id: usize) -> io::Result<()> {
         let miller_columns = MillerColumns::build_columns(&self.current_dir, new_pos_id)?;
         self.files = miller_columns.files;
         self.dirs = miller_columns.dirs;
-        self.err_msg = None;
+        self.notification = None;
         Ok(())
     }
 
@@ -115,6 +116,25 @@ impl<'a> State<'a> {
         if let Some(file) = current_file {
             let file_path = build_full_path(&self.current_dir, file);
             let copied_file = copy_file_path(file_path);
+            match copied_file {
+                Ok(value) => {
+                    self.clipboard = Clipboard::File {
+                        items: value,
+                        action: ClipboardAction::Copy,
+                    }
+                    .into();
+                    self.notification = Notification::Success {
+                        msg: Lang::en("file_copied"),
+                    }
+                    .into();
+                }
+                Err(err) => {
+                    self.notification = Notification::Error {
+                        msg: err.to_string(),
+                    }
+                    .into();
+                }
+            }
         }
     }
 }

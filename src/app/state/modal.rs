@@ -2,6 +2,7 @@ use crate::app::{
     model::{
         file::{build_full_path, get_current_file},
         miller::{columns::MillerColumns, positions::get_position},
+        notification::Notification,
     },
     state::State,
     ui::modal::{ModalKind, UnderLineModalAction},
@@ -45,7 +46,7 @@ impl<'a> Modal for State<'a> {
                     } else {
                         let _ = create_file(input_value);
                     }
-                    let _ = self.refresh(0);
+                    let _ = self.reset_state(0);
                 }
                 UnderLineModalAction::Edit => {
                     let current_file =
@@ -54,12 +55,11 @@ impl<'a> Modal for State<'a> {
                         let full_path = build_full_path(&self.current_dir, file);
                         let _ = rename_file(&full_path, input_value);
                         let positiond_id = get_position(&self.positions_map, &self.current_dir);
-                        let _ = self.refresh(positiond_id);
+                        let _ = self.reset_state(positiond_id);
                     } else {
-                        self.err_msg = Some(format!(
-                            "Failed to update file: {}",
-                            self.current_dir.display()
-                        ));
+                        self.notification = Some(Notification::Error {
+                            msg: format!("Failed to update file: {}", self.current_dir.display()),
+                        });
                     }
                 }
             },
