@@ -1,3 +1,4 @@
+use fs_extra::dir::{self, CopyOptions};
 use std::{
     io::{self, stdout},
     path::{Path, PathBuf},
@@ -10,6 +11,8 @@ use crossterm::{
     terminal::{enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
 };
 use std::io::Result as IoResult;
+
+use crate::app::utils::i18n::Lang;
 
 pub fn rename_file(path: &PathBuf, new_value: String) -> io::Result<()> {
     std::fs::rename(path, new_value)
@@ -30,8 +33,26 @@ pub fn copy_file_path(file_path: PathBuf) -> Result<PathBuf, io::Error> {
     if Path::new(&file_path).exists() {
         Ok(path)
     } else {
-        Err(io::Error::new(io::ErrorKind::NotFound, "File is not exist"))
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            Lang::en("file_not_found"),
+        ))
     }
+}
+
+pub fn paste_file(src_path: &PathBuf, dest_path: &PathBuf) -> io::Result<()> {
+    if src_path.is_file() {
+        std::fs::copy(&src_path, &dest_path)?;
+    } else if src_path.is_dir() {
+        let options = CopyOptions::new().overwrite(true).copy_inside(true);
+        dir::copy(&src_path, dest_path, &options);
+    } else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            Lang::en("file_not_pasted"),
+        ));
+    }
+    Ok(())
 }
 
 pub fn whoami_info() -> io::Result<String> {

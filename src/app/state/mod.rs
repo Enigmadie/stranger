@@ -14,7 +14,7 @@ use crate::app::model::miller::positions::parse_path_positions;
 use crate::app::model::notification::Notification;
 use crate::app::ui::modal::{ModalKind, UnderLineModalAction};
 use crate::app::utils::config_parser::default_config::Config;
-use crate::app::utils::fs::{copy_file_path, exec};
+use crate::app::utils::fs::{copy_file_path, exec, paste_file};
 use crate::app::utils::i18n::Lang;
 pub mod modal;
 pub use modal::Modal;
@@ -134,6 +134,24 @@ impl<'a> State<'a> {
                     }
                     .into();
                 }
+            }
+        }
+    }
+
+    pub fn paste_file(&mut self) {
+        match &self.clipboard {
+            Some(Clipboard::File { items, .. }) => {
+                paste_file(items, &self.current_dir);
+                self.clipboard = None;
+            }
+            Some(_) => {
+                println!("not supported yet");
+            }
+            None => {
+                self.notification = Notification::Warn {
+                    msg: Lang::en("buffer_empty"),
+                }
+                .into();
             }
         }
     }

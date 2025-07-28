@@ -8,6 +8,9 @@ static ENG: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     let mut map = HashMap::new();
     map.insert("file_copied", "File copied!");
     map.insert("file_pasted", "File pasted!");
+    map.insert("file_not_found", "File not found.");
+    map.insert("buffer_empty", "Buffer is empty");
+    map.insert("file_not_pasted", "File not pasted.");
     map
 });
 
