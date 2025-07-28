@@ -35,21 +35,34 @@ pub fn copy_file_path(file_path: PathBuf) -> Result<PathBuf, io::Error> {
     } else {
         Err(io::Error::new(
             io::ErrorKind::NotFound,
-            Lang::en("file_not_found"),
+            Lang::en("items_not_found"),
         ))
     }
 }
 
-pub fn paste_file(src_path: &PathBuf, dest_path: &PathBuf) -> io::Result<()> {
+pub fn paste_file(src_path: &PathBuf, dest_path: &Path) -> io::Result<()> {
+    if !dest_path.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("Source path does not exist: {}", src_path.display()),
+        ));
+    }
+
+    let dest_dir = dest_path.join(
+        src_path
+            .file_name()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid path name"))?,
+    );
+
     if src_path.is_file() {
-        std::fs::copy(&src_path, &dest_path)?;
+        std::fs::copy(src_path, &dest_dir)?;
     } else if src_path.is_dir() {
         let options = CopyOptions::new().overwrite(true).copy_inside(true);
-        dir::copy(&src_path, dest_path, &options);
+        let _ = dir::copy(src_path, &dest_dir, &options);
     } else {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            Lang::en("file_not_pasted"),
+            Lang::en("items_not_pasted"),
         ));
     }
     Ok(())

@@ -87,11 +87,11 @@ impl<'a> App<'a> {
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('y') => {
-                        self.state.copy_file();
+                        self.state.copy_item();
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('p') => {
-                        self.state.paste_file();
+                        let _ = self.state.paste_item();
                         self.needs_redraw = true;
                     }
                     _ => {}

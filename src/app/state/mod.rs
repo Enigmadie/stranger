@@ -10,7 +10,7 @@ use crate::app::model::clipboard::{Clipboard, ClipboardAction};
 use crate::app::model::file::{build_full_path, get_current_file};
 use crate::app::model::miller::columns::MillerColumns;
 use crate::app::model::miller::entries::{DirEntry, FileEntry, FileVariant};
-use crate::app::model::miller::positions::parse_path_positions;
+use crate::app::model::miller::positions::{get_position, parse_path_positions};
 use crate::app::model::notification::Notification;
 use crate::app::ui::modal::{ModalKind, UnderLineModalAction};
 use crate::app::utils::config_parser::default_config::Config;
@@ -111,7 +111,7 @@ impl<'a> State<'a> {
         self.input = textarea;
     }
 
-    pub fn copy_file(&mut self) {
+    pub fn copy_item(&mut self) {
         let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
         if let Some(file) = current_file {
             let file_path = build_full_path(&self.current_dir, file);
@@ -124,7 +124,7 @@ impl<'a> State<'a> {
                     }
                     .into();
                     self.notification = Notification::Success {
-                        msg: Lang::en("file_copied"),
+                        msg: Lang::en("items_copied"),
                     }
                     .into();
                 }
@@ -138,20 +138,26 @@ impl<'a> State<'a> {
         }
     }
 
-    pub fn paste_file(&mut self) {
+    pub fn paste_item(&mut self) -> io::Result<()> {
         match &self.clipboard {
             Some(Clipboard::File { items, .. }) => {
-                paste_file(items, &self.current_dir);
+                paste_file(items, &self.current_dir)?;
                 self.clipboard = None;
+                self.notification = Notification::Success {
+                    msg: Lang::en("items_pasted"),
+                }
+                .into();
+                let position_id = get_position(&self.positions_map, &self.current_dir);
+                let _ = self.reset_state(position_id);
+                Ok(())
             }
-            Some(_) => {
-                println!("not supported yet");
-            }
+            Some(_) => Ok(()),
             None => {
                 self.notification = Notification::Warn {
                     msg: Lang::en("buffer_empty"),
                 }
                 .into();
+                Ok(())
             }
         }
     }
