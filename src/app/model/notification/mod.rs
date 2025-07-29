@@ -1,6 +1,8 @@
+use std::borrow::Cow;
+
 #[derive(Debug)]
 pub enum Notification {
-    Success { msg: &'static str },
-    Warn { msg: &'static str },
-    Error { msg: String },
+    Success { msg: Cow<'static, str> },
+    Warn { msg: Cow<'static, str> },
+    Error { msg: Cow<'static, str> },
 }

@@ -11,7 +11,7 @@ use ratatui::{
 
 use crate::app::{
     config::constants::ui::{FOOTER_HEIGHT, HEADER_HEIGHT},
-    model::file::get_current_file,
+    model::{file::get_current_file, notification::Notification},
     state::State,
     ui::{body::Body, modal::Modal},
     utils::fs::whoami_info,
@@ -71,10 +71,23 @@ impl Header {
 }
 
 impl Footer {
-    fn build<'a>(_state: &'a State, _area: Rect) -> impl Widget + 'a {
-        Paragraph::new("Press q to quit")
-            .block(Block::default().borders(Borders::NONE))
-            .alignment(Alignment::Center)
+    fn build<'a>(state: &'a State, _area: Rect) -> impl Widget + 'a {
+        if let Some(notification) = &state.notification {
+            let (msg, color) = match notification {
+                Notification::Success { msg } => (msg, Color::LightGreen),
+                Notification::Warn { msg } => (msg, Color::LightYellow),
+                Notification::Error { msg } => (msg, Color::LightRed),
+            };
+
+            Paragraph::new(msg.as_ref())
+                .style(Style::default().fg(color))
+                .block(Block::default().borders(Borders::NONE))
+                .alignment(Alignment::Left)
+        } else {
+            Paragraph::new("Press q to quit")
+                .block(Block::default().borders(Borders::NONE))
+                .alignment(Alignment::Center)
+        }
     }
 }
 

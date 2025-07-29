@@ -58,7 +58,8 @@ impl<'a> Modal for State<'a> {
                         let _ = self.reset_state(positiond_id);
                     } else {
                         self.notification = Some(Notification::Error {
-                            msg: format!("Failed to update file: {}", self.current_dir.display()),
+                            msg: format!("Failed to update file: {}", self.current_dir.display())
+                                .into(),
                         });
                     }
                 }

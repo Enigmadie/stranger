@@ -124,13 +124,13 @@ impl<'a> State<'a> {
                     }
                     .into();
                     self.notification = Notification::Success {
-                        msg: Lang::en("items_copied"),
+                        msg: Lang::en("copied").into(),
                     }
                     .into();
                 }
                 Err(err) => {
                     self.notification = Notification::Error {
-                        msg: err.to_string(),
+                        msg: err.to_string().into(),
                     }
                     .into();
                 }
@@ -143,18 +143,18 @@ impl<'a> State<'a> {
             Some(Clipboard::File { items, .. }) => {
                 paste_file(items, &self.current_dir)?;
                 self.clipboard = None;
-                self.notification = Notification::Success {
-                    msg: Lang::en("items_pasted"),
-                }
-                .into();
                 let position_id = get_position(&self.positions_map, &self.current_dir);
                 let _ = self.reset_state(position_id);
+                self.notification = Notification::Success {
+                    msg: Lang::en("pasted").into(),
+                }
+                .into();
                 Ok(())
             }
             Some(_) => Ok(()),
             None => {
                 self.notification = Notification::Warn {
-                    msg: Lang::en("buffer_empty"),
+                    msg: Lang::en("buffer_empty").into(),
                 }
                 .into();
                 Ok(())
