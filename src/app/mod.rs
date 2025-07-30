@@ -94,6 +94,10 @@ impl<'a> App<'a> {
                         let _ = self.state.paste_item();
                         self.needs_redraw = true;
                     }
+                    KeyCode::Char('v') => {
+                        self.state.enter_visual_mode();
+                        self.needs_redraw = true;
+                    }
                     _ => {}
                 },
                 Mode::Insert => match key.code {
@@ -118,7 +122,17 @@ impl<'a> App<'a> {
                         }
                     }
                 },
-                Mode::Visual => {}
+                Mode::Visual => match key.code {
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        let _ = self.state.navigate_up();
+                        self.needs_redraw = true;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        let _ = self.state.navigate_down();
+                        self.needs_redraw = true;
+                    }
+                    _ => {}
+                },
             }
         }
         Ok(())

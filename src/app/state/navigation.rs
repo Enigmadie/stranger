@@ -1,8 +1,11 @@
 use std::io;
 
 use crate::app::{
-    model::miller::positions::{get_position, update_dir_position},
-    state::State,
+    model::{
+        file::get_current_file,
+        miller::positions::{get_position, update_dir_position},
+    },
+    state::{Mode, State},
 };
 
 pub trait Navigation {
@@ -34,6 +37,17 @@ impl<'a> Navigation for State<'a> {
     fn navigate_up(&mut self) -> io::Result<()> {
         let position_id = get_position(&self.positions_map, &self.current_dir);
         let new_position_id = position_id.saturating_sub(1);
+
+        if self.mode == Mode::Visual {
+            let current_file =
+                get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
+            if let Some(file) = current_file {
+                let found_files = &self.selected.iter().find(|e| e.to_string() == file.name);
+                if let Some(file) = found_files {
+                    self.selected.push(current_file);
+                }
+            }
+        }
 
         update_dir_position(&mut self.positions_map, &self.current_dir, new_position_id);
         let _ = self.reset_state(new_position_id);

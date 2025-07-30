@@ -49,5 +49,6 @@ pub fn create_test_state() -> State<'static> {
         from_external_app: false,
         clipboard: None,
         notification: None,
+        selected: vec![],
     }
 }

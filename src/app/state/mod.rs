@@ -21,7 +21,7 @@ pub use modal::Modal;
 pub mod navigation;
 pub use navigation::Navigation;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Mode {
     Normal,
     Insert,
@@ -42,6 +42,7 @@ pub struct State<'a> {
     pub from_external_app: bool,
     pub clipboard: Option<Clipboard>,
     pub notification: Option<Notification>,
+    pub selected: Vec<String>,
 }
 
 impl<'a> State<'a> {
@@ -67,6 +68,7 @@ impl<'a> State<'a> {
             from_external_app: false,
             clipboard: None,
             notification: None,
+            selected: vec![],
         })
     }
 
@@ -160,5 +162,9 @@ impl<'a> State<'a> {
                 Ok(())
             }
         }
+    }
+
+    pub fn enter_visual_mode(&mut self) {
+        self.mode = Mode::Visual;
     }
 }
