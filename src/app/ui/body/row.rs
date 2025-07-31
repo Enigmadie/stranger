@@ -16,14 +16,15 @@ use crate::app::{
 pub struct Row {}
 
 impl Row {
-    pub fn build(
+    pub fn build<'a>(
         row_layout: Rc<[Rect]>,
         row_id: usize,
-        file: &FileEntry,
+        file: &'a FileEntry,
         is_current_column: bool,
         position_id: usize,
         col_width: usize,
-    ) -> ListItem {
+        marked: &'a [String],
+    ) -> ListItem<'a> {
         let meta = match file.variant {
             FileVariant::Directory { len } => len.map(|e| e.to_string()).unwrap_or_default(),
             FileVariant::File { size } => size.map(format_bytes).unwrap_or_default(),
@@ -32,8 +33,9 @@ impl Row {
         let name = file.name.as_str();
 
         let is_selected_column = is_current_column && row_id == position_id;
+        let is_marked_in_visual_mode = marked.contains(&file.name);
 
-        let style = match file.variant {
+        let mut style = match file.variant {
             FileVariant::Directory { .. } => {
                 if is_selected_column {
                     Style::default()
@@ -55,6 +57,10 @@ impl Row {
                 }
             }
         };
+
+        if is_marked_in_visual_mode {
+            style = style.fg(Color::LightYellow);
+        }
 
         let padded_meta = if meta.len() >= meta_width {
             meta[..meta_width].to_string()

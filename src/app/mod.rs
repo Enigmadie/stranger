@@ -108,11 +108,11 @@ impl<'a> App<'a> {
                         self.needs_redraw = true;
                     }
                     KeyCode::Esc => {
-                        self.state.stop_editing();
+                        self.state.enter_normal_mode();
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('[') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        self.state.stop_editing();
+                        self.state.enter_normal_mode();
                         self.needs_redraw = true;
                     }
                     _ => {
@@ -129,6 +129,14 @@ impl<'a> App<'a> {
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
                         let _ = self.state.navigate_down();
+                        self.needs_redraw = true;
+                    }
+                    KeyCode::Char('[') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        self.state.enter_normal_mode();
+                        self.needs_redraw = true;
+                    }
+                    KeyCode::Esc => {
+                        self.state.enter_normal_mode();
                         self.needs_redraw = true;
                     }
                     _ => {}

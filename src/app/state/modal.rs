@@ -66,7 +66,7 @@ impl<'a> Modal for State<'a> {
             },
         };
 
-        self.stop_editing();
+        self.enter_normal_mode();
         self.setup_default_input();
     }
 }

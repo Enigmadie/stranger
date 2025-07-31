@@ -130,6 +130,7 @@ impl Body {
                                 is_current_or_child_column,
                                 cursor,
                                 col_width,
+                                &state.marked,
                             )
                         })
                         .collect()

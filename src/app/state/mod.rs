@@ -42,7 +42,7 @@ pub struct State<'a> {
     pub from_external_app: bool,
     pub clipboard: Option<Clipboard>,
     pub notification: Option<Notification>,
-    pub selected: Vec<String>,
+    pub marked: Vec<String>,
 }
 
 impl<'a> State<'a> {
@@ -68,7 +68,7 @@ impl<'a> State<'a> {
             from_external_app: false,
             clipboard: None,
             notification: None,
-            selected: vec![],
+            marked: vec![],
         })
     }
 
@@ -98,7 +98,7 @@ impl<'a> State<'a> {
         Ok(())
     }
 
-    pub fn stop_editing(&mut self) {
+    pub fn enter_normal_mode(&mut self) {
         self.mode = Mode::Normal;
         self.show_popup = false;
     }
@@ -166,5 +166,18 @@ impl<'a> State<'a> {
 
     pub fn enter_visual_mode(&mut self) {
         self.mode = Mode::Visual;
+    }
+
+    pub fn navigate_in_visual_mode(&mut self) {
+        if self.mode == Mode::Visual {
+            let current_file =
+                get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
+            if let Some(file) = current_file {
+                let found_file = &self.marked.contains(&file.name);
+                if !found_file {
+                    self.marked.push(file.name.clone());
+                }
+            }
+        }
     }
 }
