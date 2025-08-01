@@ -33,11 +33,13 @@ impl<'a> Navigation for State<'a> {
 
     fn navigate_up(&mut self) -> io::Result<()> {
         let position_id = get_position(&self.positions_map, &self.current_dir);
-        let new_position_id = position_id.saturating_sub(1);
+        if position_id > 0 {
+            let new_position_id = position_id.saturating_sub(1);
 
-        update_dir_position(&mut self.positions_map, &self.current_dir, new_position_id);
-        self.navigate_in_visual_mode();
-        let _ = self.reset_state(new_position_id);
+            update_dir_position(&mut self.positions_map, &self.current_dir, new_position_id);
+            self.mark_item();
+            let _ = self.reset_state(new_position_id);
+        }
         Ok(())
     }
 
@@ -47,7 +49,7 @@ impl<'a> Navigation for State<'a> {
             let new_position_id = position_id + 1;
 
             update_dir_position(&mut self.positions_map, &self.current_dir, new_position_id);
-            self.navigate_in_visual_mode();
+            self.mark_item();
             let _ = self.reset_state(new_position_id);
         }
         Ok(())

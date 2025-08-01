@@ -139,6 +139,10 @@ impl<'a> App<'a> {
                         self.state.enter_normal_mode();
                         self.needs_redraw = true;
                     }
+                    KeyCode::Char('v') => {
+                        self.state.enter_normal_mode();
+                        self.needs_redraw = true;
+                    }
                     _ => {}
                 },
             }

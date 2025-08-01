@@ -166,9 +166,10 @@ impl<'a> State<'a> {
 
     pub fn enter_visual_mode(&mut self) {
         self.mode = Mode::Visual;
+        self.mark_item();
     }
 
-    pub fn navigate_in_visual_mode(&mut self) {
+    pub fn mark_item(&mut self) {
         if self.mode == Mode::Visual {
             let current_file =
                 get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
@@ -176,6 +177,8 @@ impl<'a> State<'a> {
                 let found_file = &self.marked.contains(&file.name);
                 if !found_file {
                     self.marked.push(file.name.clone());
+                } else {
+                    self.marked.retain(|e| e != &file.name)
                 }
             }
         }
