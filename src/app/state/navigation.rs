@@ -2,7 +2,7 @@ use std::io;
 
 use crate::app::{
     model::miller::positions::{get_position, update_dir_position},
-    state::State,
+    state::{Mode, State},
 };
 
 pub trait Navigation {
@@ -36,8 +36,15 @@ impl<'a> Navigation for State<'a> {
         if position_id > 0 {
             let new_position_id = position_id.saturating_sub(1);
 
+            if let Mode::Visual { init } = self.mode {
+                if init {
+                    // first time run after in visual mode
+                    self.mode = Mode::Visual { init: false }
+                } else {
+                    self.mark_item();
+                }
+            }
             update_dir_position(&mut self.positions_map, &self.current_dir, new_position_id);
-            self.mark_item();
             let _ = self.reset_state(new_position_id);
         }
         Ok(())
@@ -49,7 +56,9 @@ impl<'a> Navigation for State<'a> {
             let new_position_id = position_id + 1;
 
             update_dir_position(&mut self.positions_map, &self.current_dir, new_position_id);
-            self.mark_item();
+            if matches!(self.mode, Mode::Visual { .. }) {
+                self.mark_item();
+            }
             let _ = self.reset_state(new_position_id);
         }
         Ok(())

@@ -10,6 +10,7 @@ use ratatui::{
 
 use crate::app::{
     model::miller::entries::{FileEntry, FileVariant},
+    state::Mode,
     utils::format_bytes,
 };
 
@@ -24,6 +25,7 @@ impl Row {
         position_id: usize,
         col_width: usize,
         marked: &'a [String],
+        mode: &'a Mode,
     ) -> ListItem<'a> {
         let meta = match file.variant {
             FileVariant::Directory { len } => len.map(|e| e.to_string()).unwrap_or_default(),
@@ -58,12 +60,10 @@ impl Row {
             }
         };
 
-        if is_marked_in_visual_mode {
-            if is_selected_column {
-                style = style.bg(Color::Yellow);
-            } else {
-                style = style.fg(Color::Yellow);
-            }
+        if matches!(mode, Mode::Visual { .. }) && is_selected_column {
+            style = style.bg(Color::Yellow).fg(Color::Rgb(0, 0, 0));
+        } else if is_marked_in_visual_mode {
+            style = style.fg(Color::Yellow);
         }
 
         let padded_meta = if meta.len() >= meta_width {

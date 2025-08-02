@@ -122,7 +122,7 @@ impl<'a> App<'a> {
                         }
                     }
                 },
-                Mode::Visual => match key.code {
+                Mode::Visual { .. } => match key.code {
                     KeyCode::Char('k') | KeyCode::Up => {
                         let _ = self.state.navigate_up();
                         self.needs_redraw = true;

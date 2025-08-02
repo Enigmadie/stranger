@@ -131,6 +131,7 @@ impl Body {
                                 cursor,
                                 col_width,
                                 &state.marked,
+                                &state.mode,
                             )
                         })
                         .collect()

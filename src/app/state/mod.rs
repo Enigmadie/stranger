@@ -25,7 +25,7 @@ pub use navigation::Navigation;
 pub enum Mode {
     Normal,
     Insert,
-    Visual,
+    Visual { init: bool },
 }
 
 #[derive(Debug)]
@@ -99,6 +99,9 @@ impl<'a> State<'a> {
     }
 
     pub fn enter_normal_mode(&mut self) {
+        // if matches!(self.mode, Mode::Visual { .. }) {
+        //     self.mark_item();
+        // }
         self.mode = Mode::Normal;
         self.show_popup = false;
     }
@@ -165,22 +168,23 @@ impl<'a> State<'a> {
     }
 
     pub fn enter_visual_mode(&mut self) {
-        self.mode = Mode::Visual;
         self.mark_item();
+        self.mode = Mode::Visual { init: true };
     }
 
     pub fn mark_item(&mut self) {
-        if self.mode == Mode::Visual {
-            let current_file =
-                get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
-            if let Some(file) = current_file {
-                let found_file = &self.marked.contains(&file.name);
-                if !found_file {
-                    self.marked.push(file.name.clone());
-                } else {
-                    self.marked.retain(|e| e != &file.name)
-                }
+        let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
+        if let Some(file) = current_file {
+            let found_file = &self.marked.contains(&file.name);
+            if !found_file {
+                self.marked.push(file.name.clone());
+            } else {
+                self.marked.retain(|e| e != &file.name);
             }
         }
+        self.notification = Notification::Warn {
+            msg: format!("{:?}", self.marked).into(),
+        }
+        .into();
     }
 }
