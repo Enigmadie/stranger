@@ -98,6 +98,10 @@ impl<'a> App<'a> {
                         self.state.enter_visual_mode();
                         self.needs_redraw = true;
                     }
+                    KeyCode::Char(' ') => {
+                        self.state.mark_and_down();
+                        self.needs_redraw = true;
+                    }
                     _ => {}
                 },
                 Mode::Insert => match key.code {

@@ -94,7 +94,23 @@ impl<'a> State<'a> {
         let miller_columns = MillerColumns::build_columns(&self.current_dir, new_pos_id)?;
         self.files = miller_columns.files;
         self.dirs = miller_columns.dirs;
-        self.notification = None;
+        match self.mode {
+            Mode::Insert => {
+                self.notification = Notification::Info {
+                    msg: Lang::en("insert_mode").into(),
+                }
+                .into();
+            }
+            Mode::Visual { .. } => {
+                self.notification = Notification::Info {
+                    msg: Lang::en("visual_mode").into(),
+                }
+                .into();
+            }
+            _ => {
+                self.notification = None;
+            }
+        }
         Ok(())
     }
 
@@ -104,11 +120,25 @@ impl<'a> State<'a> {
         // }
         self.mode = Mode::Normal;
         self.show_popup = false;
+        self.notification = None;
     }
 
-    fn start_editing(&mut self) {
+    fn enter_insert_mode(&mut self) {
         self.mode = Mode::Insert;
         self.show_popup = true;
+        self.notification = Notification::Info {
+            msg: Lang::en("insert_mode").into(),
+        }
+        .into();
+    }
+
+    pub fn enter_visual_mode(&mut self) {
+        self.mark_item();
+        self.mode = Mode::Visual { init: true };
+        self.notification = Notification::Info {
+            msg: Lang::en("visual_mode").into(),
+        }
+        .into();
     }
 
     fn setup_default_input(&mut self) {
@@ -167,11 +197,6 @@ impl<'a> State<'a> {
         }
     }
 
-    pub fn enter_visual_mode(&mut self) {
-        self.mark_item();
-        self.mode = Mode::Visual { init: true };
-    }
-
     pub fn mark_item(&mut self) {
         let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
         if let Some(file) = current_file {
@@ -182,9 +207,16 @@ impl<'a> State<'a> {
                 self.marked.retain(|e| e != &file.name);
             }
         }
-        self.notification = Notification::Warn {
-            msg: format!("{:?}", self.marked).into(),
+    }
+
+    pub fn mark_and_down(&mut self) {
+        let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
+        if let Some(file) = current_file {
+            let found_file = &self.marked.contains(&file.name);
+            if !found_file {
+                self.marked.push(file.name.clone());
+            }
         }
-        .into();
+        let _ = self.navigate_down();
     }
 }

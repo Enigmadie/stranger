@@ -74,6 +74,7 @@ impl Footer {
     fn build<'a>(state: &'a State, _area: Rect) -> impl Widget + 'a {
         if let Some(notification) = &state.notification {
             let (msg, color) = match notification {
+                Notification::Info { msg } => (msg, Color::White),
                 Notification::Success { msg } => (msg, Color::LightGreen),
                 Notification::Warn { msg } => (msg, Color::LightYellow),
                 Notification::Error { msg } => (msg, Color::LightRed),

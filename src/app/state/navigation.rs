@@ -57,6 +57,7 @@ impl<'a> Navigation for State<'a> {
 
             update_dir_position(&mut self.positions_map, &self.current_dir, new_position_id);
             if matches!(self.mode, Mode::Visual { .. }) {
+                self.mode = Mode::Visual { init: false };
                 self.mark_item();
             }
             let _ = self.reset_state(new_position_id);

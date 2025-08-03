@@ -35,7 +35,7 @@ impl Row {
         let name = file.name.as_str();
 
         let is_selected_column = is_current_column && row_id == position_id;
-        let is_marked_in_visual_mode = is_current_column && marked.contains(&file.name);
+        let is_marked = is_current_column && marked.contains(&file.name);
 
         let mut style = match file.variant {
             FileVariant::Directory { .. } => {
@@ -60,9 +60,9 @@ impl Row {
             }
         };
 
-        if matches!(mode, Mode::Visual { .. }) && is_selected_column {
+        if (matches!(mode, Mode::Visual { .. }) || is_marked) && is_selected_column {
             style = style.bg(Color::Yellow).fg(Color::Rgb(0, 0, 0));
-        } else if is_marked_in_visual_mode {
+        } else if is_marked {
             style = style.fg(Color::Yellow);
         }
 
