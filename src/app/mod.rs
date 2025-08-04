@@ -87,7 +87,7 @@ impl<'a> App<'a> {
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('y') => {
-                        self.state.copy_item();
+                        self.state.copy_items();
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('p') => {

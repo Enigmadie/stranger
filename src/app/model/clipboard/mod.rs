@@ -9,10 +9,6 @@ pub enum ClipboardAction {
 #[derive(Debug)]
 pub enum Clipboard {
     File {
-        items: PathBuf,
-        action: ClipboardAction,
-    },
-    Files {
         items: Vec<PathBuf>,
         action: ClipboardAction,
     },

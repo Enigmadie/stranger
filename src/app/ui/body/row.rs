@@ -24,7 +24,7 @@ impl Row {
         is_current_column: bool,
         position_id: usize,
         col_width: usize,
-        marked: &'a [String],
+        marked: &'a [FileEntry],
         mode: &'a Mode,
     ) -> ListItem<'a> {
         let meta = match file.variant {
@@ -35,7 +35,7 @@ impl Row {
         let name = file.name.as_str();
 
         let is_selected_column = is_current_column && row_id == position_id;
-        let is_marked = is_current_column && marked.contains(&file.name);
+        let is_marked = is_current_column && marked.iter().any(|f| f.name == file.name);
 
         let mut style = match file.variant {
             FileVariant::Directory { .. } => {

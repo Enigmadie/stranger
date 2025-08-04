@@ -42,7 +42,7 @@ pub struct State<'a> {
     pub from_external_app: bool,
     pub clipboard: Option<Clipboard>,
     pub notification: Option<Notification>,
-    pub marked: Vec<String>,
+    pub marked: Vec<FileEntry>,
 }
 
 impl<'a> State<'a> {
@@ -146,29 +146,42 @@ impl<'a> State<'a> {
         self.input = textarea;
     }
 
-    pub fn copy_item(&mut self) {
-        let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
-        if let Some(file) = current_file {
-            let file_path = build_full_path(&self.current_dir, file);
-            let copied_file = copy_file_path(file_path);
-            match copied_file {
-                Ok(value) => {
-                    self.clipboard = Clipboard::File {
-                        items: value,
-                        action: ClipboardAction::Copy,
-                    }
-                    .into();
-                    self.notification = Notification::Success {
-                        msg: Lang::en("copied").into(),
-                    }
-                    .into();
+    pub fn copy_items(&mut self) {
+        let is_visual_mode = matches!(self.mode, Mode::Visual { .. }) && !self.marked.is_empty();
+        let files_to_copy = if is_visual_mode {
+            self.marked.clone()
+        } else {
+            vec![
+                get_current_file(&self.positions_map, &self.current_dir, &self.files[1])
+                    .unwrap()
+                    .clone(),
+            ]
+        };
+        let copied_filepaths: Result<Vec<PathBuf>, _> = files_to_copy
+            .iter()
+            .map(|file| {
+                let file_path = build_full_path(&self.current_dir, file);
+                copy_file_path(file_path)
+            })
+            .collect();
+
+        match copied_filepaths {
+            Ok(value) => {
+                self.notification = Notification::Success {
+                    msg: Lang::en_fmt("copied", format_args!("{}", value.len())).into(),
                 }
-                Err(err) => {
-                    self.notification = Notification::Error {
-                        msg: err.to_string().into(),
-                    }
-                    .into();
+                .into();
+                self.clipboard = Clipboard::File {
+                    items: value,
+                    action: ClipboardAction::Copy,
                 }
+                .into();
+            }
+            Err(err) => {
+                self.notification = Notification::Error {
+                    msg: err.to_string().into(),
+                }
+                .into();
             }
         }
     }
@@ -176,7 +189,9 @@ impl<'a> State<'a> {
     pub fn paste_item(&mut self) -> io::Result<()> {
         match &self.clipboard {
             Some(Clipboard::File { items, .. }) => {
-                paste_file(items, &self.current_dir)?;
+                for file in items {
+                    paste_file(file, &self.current_dir)?;
+                }
                 self.clipboard = None;
                 let position_id = get_position(&self.positions_map, &self.current_dir);
                 let _ = self.reset_state(position_id);
@@ -186,7 +201,6 @@ impl<'a> State<'a> {
                 .into();
                 Ok(())
             }
-            Some(_) => Ok(()),
             None => {
                 self.notification = Notification::Warn {
                     msg: Lang::en("buffer_empty").into(),
@@ -200,11 +214,11 @@ impl<'a> State<'a> {
     pub fn mark_item(&mut self) {
         let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
         if let Some(file) = current_file {
-            let found_file = &self.marked.contains(&file.name);
+            let found_file = self.marked.iter().any(|f| f.name == file.name);
             if !found_file {
-                self.marked.push(file.name.clone());
+                self.marked.push(file.clone());
             } else {
-                self.marked.retain(|e| e != &file.name);
+                self.marked.retain(|e| e.name != file.name);
             }
         }
     }
@@ -212,9 +226,9 @@ impl<'a> State<'a> {
     pub fn mark_and_down(&mut self) {
         let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
         if let Some(file) = current_file {
-            let found_file = &self.marked.contains(&file.name);
+            let found_file = &self.marked.iter().any(|f| f.name == file.name);
             if !found_file {
-                self.marked.push(file.name.clone());
+                self.marked.push(file.clone());
             }
         }
         let _ = self.navigate_down();

@@ -6,7 +6,7 @@ pub enum FileVariant {
     File { size: Option<u64> },
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FileEntry {
     pub name: String,
     pub variant: FileVariant,
