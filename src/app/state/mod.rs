@@ -147,8 +147,7 @@ impl<'a> State<'a> {
     }
 
     pub fn copy_items(&mut self) {
-        let is_visual_mode = matches!(self.mode, Mode::Visual { .. }) && !self.marked.is_empty();
-        let files_to_copy = if is_visual_mode {
+        let files_to_copy = if !self.marked.is_empty() {
             self.marked.clone()
         } else {
             vec![
