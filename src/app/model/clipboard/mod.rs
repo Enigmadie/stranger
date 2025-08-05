@@ -4,6 +4,7 @@ use std::path::PathBuf;
 pub enum ClipboardAction {
     Copy,
     Cut,
+    Delete,
 }
 
 #[derive(Debug)]

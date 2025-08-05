@@ -7,6 +7,7 @@ pub struct Lang;
 static ENG: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     let mut map = HashMap::new();
     map.insert("copied", "Copied {} items!");
+    map.insert("deleted", "Deleted {} items!");
     map.insert("pasted", "Pasted!");
     map.insert("items_not_found", "Files not found.");
     map.insert("buffer_empty", "Buffer is empty");

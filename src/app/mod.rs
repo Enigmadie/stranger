@@ -94,6 +94,10 @@ impl<'a> App<'a> {
                         let _ = self.state.paste_files();
                         self.needs_redraw = true;
                     }
+                    KeyCode::Char('D') => {
+                        self.state.delete_files();
+                        self.needs_redraw = true;
+                    }
                     KeyCode::Char('v') => {
                         self.state.enter_visual_mode();
                         self.needs_redraw = true;

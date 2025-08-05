@@ -10,7 +10,7 @@ use crate::app::{
     state::State,
     ui::modal::{ModalKind, UnderLineModalAction},
     utils::{
-        fs::{copy_file_path, create_dir, create_file, exec, paste_file, rename_file},
+        fs::{copy_file_path, create_dir, create_file, exec, paste_file, remove_file, rename_file},
         i18n::Lang,
     },
 };
@@ -20,6 +20,7 @@ pub trait FileManager {
     fn rename_file(&mut self);
     fn copy_files(&mut self);
     fn paste_files(&mut self) -> io::Result<()>;
+    fn delete_files(&mut self);
     fn commit_changes(&mut self);
     fn execute_file(&mut self, file_name: PathBuf);
 }
@@ -115,6 +116,49 @@ impl<'a> FileManager for State<'a> {
                 }
                 .into();
             }
+        }
+    }
+
+    fn delete_files(&mut self) {
+        let files_to_delete = if !self.marked.is_empty() {
+            self.marked.clone()
+        } else {
+            vec![
+                get_current_file(&self.positions_map, &self.current_dir, &self.files[1])
+                    .unwrap()
+                    .clone(),
+            ]
+        };
+        let mut successful_deletions = 0;
+        let mut errors = Vec::new();
+
+        for file in files_to_delete {
+            let filepath = build_full_path(&self.current_dir, &file);
+            match remove_file(&filepath) {
+                Ok(()) => successful_deletions += 1,
+                Err(e) => errors.push(e),
+            }
+        }
+
+        if !errors.is_empty() {
+            self.notification = Notification::Error {
+                msg: format!(
+                    "Failed to delete {} files: {}",
+                    errors.len(),
+                    errors
+                        .iter()
+                        .map(|e| e.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+                .into(),
+            }
+            .into()
+        } else {
+            self.notification = Notification::Success {
+                msg: Lang::en_fmt("deleted", format_args!("{}", successful_deletions)).into(),
+            }
+            .into();
         }
     }
 

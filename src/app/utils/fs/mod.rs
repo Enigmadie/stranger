@@ -68,6 +68,27 @@ pub fn paste_file(src_path: &PathBuf, dest_path: &Path) -> io::Result<()> {
     Ok(())
 }
 
+pub fn remove_file(path: &PathBuf) -> io::Result<()> {
+    if !path.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("Path does not exist: {}", path.display()),
+        ));
+    }
+
+    if path.is_file() {
+        std::fs::remove_file(path)?;
+    } else if path.is_dir() {
+        std::fs::remove_dir_all(path)?;
+    } else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            Lang::en("items_not_deleted"),
+        ));
+    }
+    Ok(())
+}
+
 pub fn whoami_info() -> io::Result<String> {
     let username = Command::new("whoami")
         .output()
