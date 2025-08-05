@@ -14,17 +14,32 @@ use std::io::Result as IoResult;
 
 use crate::app::utils::i18n::Lang;
 
-pub fn rename_file(path: &PathBuf, new_value: String) -> io::Result<()> {
-    std::fs::rename(path, new_value)
+pub fn rename_file(full_path: &PathBuf, new_name: String) -> io::Result<()> {
+    let parent_dir = full_path
+        .parent()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid file path"))?;
+
+    let new_path = parent_dir.join(&new_name);
+    std::fs::rename(full_path, new_path)
 }
 
-pub fn create_file(file_name: String) -> io::Result<()> {
-    let _ = std::fs::File::create(file_name);
+pub fn create_file(file_name: String, file_path: &PathBuf) -> io::Result<()> {
+    let full_path = PathBuf::from(file_path).join(file_name);
+
+    let parent_dir = full_path
+        .parent()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid file path"))?;
+
+    if !parent_dir.exists() {
+        std::fs::create_dir_all(parent_dir)?;
+    }
+
+    std::fs::File::create(&full_path)?;
     Ok(())
 }
 
 pub fn create_dir(dir_name: String) -> io::Result<()> {
-    let _ = std::fs::create_dir(dir_name);
+    let _ = std::fs::create_dir_all(dir_name);
     Ok(())
 }
 

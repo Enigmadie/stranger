@@ -54,7 +54,7 @@ impl<'a> FileManager for State<'a> {
                     if is_dir {
                         let _ = create_dir(input_value);
                     } else {
-                        let _ = create_file(input_value);
+                        let _ = create_file(input_value, &self.current_dir);
                     }
                     let _ = self.reset_state(0);
                 }
@@ -160,6 +160,8 @@ impl<'a> FileManager for State<'a> {
             }
             .into();
         }
+        let position_id = get_position(&self.positions_map, &self.current_dir);
+        let _ = self.reset_state(position_id.saturating_sub(1));
     }
 
     fn paste_files(&mut self) -> io::Result<()> {
