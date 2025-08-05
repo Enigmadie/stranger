@@ -6,18 +6,17 @@ use std::path::PathBuf;
 use tui_textarea::TextArea;
 
 use crate::app::config::constants::model::NUM_COLUMNS;
-use crate::app::model::clipboard::{Clipboard, ClipboardAction};
+use crate::app::model::clipboard::Clipboard;
 use crate::app::model::file::{build_full_path, get_current_file};
 use crate::app::model::miller::columns::MillerColumns;
 use crate::app::model::miller::entries::{DirEntry, FileEntry, FileVariant};
-use crate::app::model::miller::positions::{get_position, parse_path_positions};
+use crate::app::model::miller::positions::parse_path_positions;
 use crate::app::model::notification::Notification;
 use crate::app::ui::modal::{ModalKind, UnderLineModalAction};
 use crate::app::utils::config_parser::default_config::Config;
-use crate::app::utils::fs::{copy_file_path, exec, paste_file};
 use crate::app::utils::i18n::Lang;
-pub mod modal;
-pub use modal::Modal;
+pub mod file_managment;
+pub use file_managment::FileManager;
 pub mod navigation;
 pub use navigation::Navigation;
 
@@ -72,24 +71,6 @@ impl<'a> State<'a> {
         })
     }
 
-    pub fn navigate_to_child_or_exec(&mut self) -> io::Result<()> {
-        let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
-        if let Some(file) = current_file {
-            let file_path = build_full_path(&self.current_dir, file);
-            if let FileVariant::File { .. } = file.variant {
-                self.execute_file(file_path);
-            } else {
-                self.navigate_to_child()?;
-            }
-        }
-        Ok(())
-    }
-
-    pub fn execute_file(&mut self, file_name: PathBuf) {
-        let _ = exec(&self.config.common.editor, &[&file_name.to_string_lossy()]);
-        self.from_external_app = true;
-    }
-
     pub fn reset_state(&mut self, new_pos_id: usize) -> io::Result<()> {
         let miller_columns = MillerColumns::build_columns(&self.current_dir, new_pos_id)?;
         self.files = miller_columns.files;
@@ -114,10 +95,20 @@ impl<'a> State<'a> {
         Ok(())
     }
 
+    pub fn navigate_to_child_or_exec(&mut self) -> io::Result<()> {
+        let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
+        if let Some(file) = current_file {
+            let file_path = build_full_path(&self.current_dir, file);
+            if let FileVariant::File { .. } = file.variant {
+                self.execute_file(file_path);
+            } else {
+                self.navigate_to_child()?;
+            }
+        }
+        Ok(())
+    }
+
     pub fn enter_normal_mode(&mut self) {
-        // if matches!(self.mode, Mode::Visual { .. }) {
-        //     self.mark_item();
-        // }
         self.mode = Mode::Normal;
         self.show_popup = false;
         self.notification = None;
@@ -146,70 +137,6 @@ impl<'a> State<'a> {
         self.input = textarea;
     }
 
-    pub fn copy_items(&mut self) {
-        let files_to_copy = if !self.marked.is_empty() {
-            self.marked.clone()
-        } else {
-            vec![
-                get_current_file(&self.positions_map, &self.current_dir, &self.files[1])
-                    .unwrap()
-                    .clone(),
-            ]
-        };
-        let copied_filepaths: Result<Vec<PathBuf>, _> = files_to_copy
-            .iter()
-            .map(|file| {
-                let file_path = build_full_path(&self.current_dir, file);
-                copy_file_path(file_path)
-            })
-            .collect();
-
-        match copied_filepaths {
-            Ok(value) => {
-                self.notification = Notification::Success {
-                    msg: Lang::en_fmt("copied", format_args!("{}", value.len())).into(),
-                }
-                .into();
-                self.clipboard = Clipboard::File {
-                    items: value,
-                    action: ClipboardAction::Copy,
-                }
-                .into();
-            }
-            Err(err) => {
-                self.notification = Notification::Error {
-                    msg: err.to_string().into(),
-                }
-                .into();
-            }
-        }
-    }
-
-    pub fn paste_item(&mut self) -> io::Result<()> {
-        match &self.clipboard {
-            Some(Clipboard::File { items, .. }) => {
-                for file in items {
-                    paste_file(file, &self.current_dir)?;
-                }
-                self.clipboard = None;
-                let position_id = get_position(&self.positions_map, &self.current_dir);
-                let _ = self.reset_state(position_id);
-                self.notification = Notification::Success {
-                    msg: Lang::en("pasted").into(),
-                }
-                .into();
-                Ok(())
-            }
-            None => {
-                self.notification = Notification::Warn {
-                    msg: Lang::en("buffer_empty").into(),
-                }
-                .into();
-                Ok(())
-            }
-        }
-    }
-
     pub fn mark_item(&mut self) {
         let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
         if let Some(file) = current_file {
@@ -228,8 +155,58 @@ impl<'a> State<'a> {
             let found_file = &self.marked.iter().any(|f| f.name == file.name);
             if !found_file {
                 self.marked.push(file.clone());
+            } else {
+                self.marked.retain(|e| e.name != file.name);
             }
         }
         let _ = self.navigate_down();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::test_utils::create_test_state;
+
+    #[test]
+    fn mark_item_adds_file() {
+        let mut state = create_test_state();
+        let initial_length = state.marked.len();
+        state.mark_item();
+        assert_eq!(state.marked.len(), initial_length + 1);
+    }
+
+    #[test]
+    fn mark_item_removes_file() {
+        let mut state = create_test_state();
+        state.mark_item();
+        let initial_length = state.marked.len();
+        state.mark_item();
+        assert_eq!(state.marked.len(), initial_length - 1);
+    }
+
+    #[test]
+    fn marks_and_moves_down() {
+        let mut state = create_test_state();
+        let initial_length = state.marked.len();
+        state.mark_and_down();
+        assert_eq!(state.marked.len(), initial_length + 1);
+        assert_eq!(state.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn normal_mode_changes_state() {
+        let mut state = create_test_state();
+        state.enter_normal_mode();
+        assert_eq!(state.mode, Mode::Normal);
+        assert!(state.notification.is_none());
+    }
+
+    #[test]
+    fn insert_mode_changes_state() {
+        let mut state = create_test_state();
+        state.enter_insert_mode();
+        assert_eq!(state.mode, Mode::Insert);
+        assert!(state.notification.is_some());
     }
 }

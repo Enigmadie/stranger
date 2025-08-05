@@ -14,7 +14,7 @@ pub mod test_utils;
 pub mod ui;
 pub mod utils;
 
-use crate::app::state::{Modal, Mode, Navigation};
+use crate::app::state::{FileManager, Mode, Navigation};
 use crate::app::utils::config_parser::load_config;
 
 use self::state::State;
@@ -79,19 +79,19 @@ impl<'a> App<'a> {
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('r') => {
-                        self.state.rename();
+                        self.state.rename_file();
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('a') => {
-                        self.state.add();
+                        self.state.add_file();
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('y') => {
-                        self.state.copy_items();
+                        self.state.copy_files();
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('p') => {
-                        let _ = self.state.paste_item();
+                        let _ = self.state.paste_files();
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('v') => {
@@ -107,7 +107,7 @@ impl<'a> App<'a> {
                 Mode::Insert => match key.code {
                     KeyCode::Enter => {
                         if self.state.show_popup {
-                            self.state.commit();
+                            self.state.commit_changes();
                         }
                         self.needs_redraw = true;
                     }

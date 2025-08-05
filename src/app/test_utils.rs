@@ -18,10 +18,20 @@ pub fn create_test_state() -> State<'static> {
         current_dir,
         files: [
             vec![],
-            vec![FileEntry {
-                name: "file1".into(),
-                variant: FileVariant::File { size: Some(10) },
-            }],
+            vec![
+                FileEntry {
+                    name: "file1".into(),
+                    variant: FileVariant::File { size: Some(10) },
+                },
+                FileEntry {
+                    name: "file2".into(),
+                    variant: FileVariant::File { size: Some(10) },
+                },
+                FileEntry {
+                    name: "file3".into(),
+                    variant: FileVariant::File { size: Some(10) },
+                },
+            ],
             vec![],
         ],
         dirs: [

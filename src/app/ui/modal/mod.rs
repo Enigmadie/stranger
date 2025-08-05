@@ -131,7 +131,7 @@ mod tests {
         };
 
         let (x, y) = modal.get_underline_pos();
-        assert_eq!(1, y);
-        assert_eq!(4, x);
+        assert_eq!(2, y);
+        assert_eq!(2, x);
     }
 }

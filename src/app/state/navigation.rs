@@ -65,3 +65,59 @@ impl<'a> Navigation for State<'a> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::test_utils::create_test_state;
+
+    #[test]
+    fn test_navigate_to_parent() {
+        let mut state = create_test_state();
+        let initial_dir = state.current_dir.clone();
+        state.dirs[0].dir_name = Some(initial_dir.parent().unwrap().to_path_buf());
+        assert!(state.navigate_to_parent().is_ok());
+        assert_eq!(state.current_dir, initial_dir.parent().unwrap());
+    }
+
+    #[test]
+    fn test_navigate_to_child() {
+        let mut state = create_test_state();
+        let initial_dir = state.current_dir.clone();
+        state.dirs[2].dir_name = Some(initial_dir.join("child"));
+        assert!(state.navigate_to_child().is_ok());
+        assert_eq!(state.current_dir, state.dirs[2].dir_name.clone().unwrap());
+    }
+
+    #[test]
+    fn test_navigate_up() {
+        let mut state = create_test_state();
+        let initial_position = get_position(&state.positions_map, &state.current_dir);
+        assert!(state.navigate_up().is_ok());
+        let new_position = get_position(&state.positions_map, &state.current_dir);
+        assert_eq!(new_position, initial_position.saturating_sub(1));
+    }
+
+    #[test]
+    fn test_navigate_up_at_zero() {
+        let mut state = create_test_state();
+        let initial_position = 0;
+        update_dir_position(
+            &mut state.positions_map,
+            &state.current_dir,
+            initial_position,
+        );
+        assert!(state.navigate_up().is_ok());
+        let new_position = get_position(&state.positions_map, &state.current_dir);
+        assert_eq!(new_position, 0);
+    }
+
+    #[test]
+    fn test_navigate_down() {
+        let mut state = create_test_state();
+        let initial_position = get_position(&state.positions_map, &state.current_dir);
+        assert!(state.navigate_down().is_ok());
+        let new_position = get_position(&state.positions_map, &state.current_dir);
+        assert_eq!(new_position, initial_position.saturating_add(1));
+    }
+}
