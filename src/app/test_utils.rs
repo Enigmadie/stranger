@@ -21,15 +21,24 @@ pub fn create_test_state() -> State<'static> {
             vec![
                 FileEntry {
                     name: "file1".into(),
-                    variant: FileVariant::File { size: Some(10) },
+                    variant: FileVariant::File {
+                        size: Some(10),
+                        permissions: Some("rwxr-xr-x".into()),
+                    },
                 },
                 FileEntry {
                     name: "file2".into(),
-                    variant: FileVariant::File { size: Some(10) },
+                    variant: FileVariant::File {
+                        size: Some(10),
+                        permissions: Some("rwxr-xr-x".into()),
+                    },
                 },
                 FileEntry {
                     name: "file3".into(),
-                    variant: FileVariant::File { size: Some(10) },
+                    variant: FileVariant::File {
+                        size: Some(10),
+                        permissions: Some("rwxr-xr-x".into()),
+                    },
                 },
             ],
             vec![],

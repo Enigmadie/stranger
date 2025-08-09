@@ -11,7 +11,7 @@ use ratatui::{
 
 use crate::app::{
     config::constants::ui::{FOOTER_HEIGHT, HEADER_HEIGHT},
-    model::{file::get_current_file, notification::Notification},
+    model::{file::get_current_file, miller::entries::FileVariant, notification::Notification},
     state::State,
     ui::{body::Body, modal::Modal},
     utils::fs::whoami_info,
@@ -32,7 +32,6 @@ pub fn render(state: &State, frame: &mut Frame<'_>) {
     let header = Header::build(state, layout[0]);
     let body = Body::build(state, layout[1]);
     let footer = Footer::build(state, layout[2]);
-    // let modal = Modal
 
     frame.render_widget(header, layout[0]);
     frame.render_widget(body, layout[1]);
@@ -42,7 +41,6 @@ pub fn render(state: &State, frame: &mut Frame<'_>) {
         let modal = Modal::build(state, area);
         frame.render_widget(modal, area);
     }
-    // frame.render_widget(, area);
 }
 
 pub struct Header;
@@ -85,7 +83,14 @@ impl Footer {
                 .block(Block::default().borders(Borders::NONE))
                 .alignment(Alignment::Left)
         } else {
-            Paragraph::new("Press q to quit")
+            let footer =
+                get_current_file(&state.positions_map, &state.current_dir, &state.files[1])
+                    .and_then(|file| match &file.variant {
+                        FileVariant::Directory { permissions, .. } => permissions.clone(),
+                        FileVariant::File { permissions, .. } => permissions.clone(),
+                    });
+
+            Paragraph::new(footer.unwrap_or(String::from("Press q to quit")))
                 .block(Block::default().borders(Borders::NONE))
                 .alignment(Alignment::Center)
         }

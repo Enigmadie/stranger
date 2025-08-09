@@ -28,8 +28,8 @@ impl Row {
         mode: &'a Mode,
     ) -> ListItem<'a> {
         let meta = match file.variant {
-            FileVariant::Directory { len } => len.map(|e| e.to_string()).unwrap_or_default(),
-            FileVariant::File { size } => size.map(format_bytes).unwrap_or_default(),
+            FileVariant::Directory { len, .. } => len.map(|e| e.to_string()).unwrap_or_default(),
+            FileVariant::File { size, .. } => size.map(format_bytes).unwrap_or_default(),
         };
         let meta_width = row_layout[2].width as usize;
         let name = file.name.as_str();

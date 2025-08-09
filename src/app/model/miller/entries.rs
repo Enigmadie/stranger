@@ -2,8 +2,14 @@ use std::path::PathBuf;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum FileVariant {
-    Directory { len: Option<u64> },
-    File { size: Option<u64> },
+    Directory {
+        len: Option<u64>,
+        permissions: Option<String>,
+    },
+    File {
+        size: Option<u64>,
+        permissions: Option<String>,
+    },
 }
 
 #[derive(Debug, PartialEq, Clone)]

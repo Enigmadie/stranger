@@ -2,7 +2,7 @@ use std::io::{self};
 use std::path::Path;
 
 use crate::app::config::constants::model::NUM_COLUMNS;
-use crate::app::model::file::{calculate_file_size, count_dir_entries};
+use crate::app::model::file::{calculate_file_size, count_dir_entries, get_file_permissions};
 use crate::app::model::miller::entries::{DirEntry, FileEntry, FileVariant};
 
 #[derive(Debug)]
@@ -55,20 +55,19 @@ impl MillerColumns {
                     .filter_map(|entry| {
                         let e = entry.ok()?;
                         let metadata = e.metadata().ok()?;
+                        let permissions =
+                            dir_entry.with_meta.then(|| get_file_permissions(&metadata));
                         let variant = if metadata.is_dir() {
-                            let len = if dir_entry.with_meta {
-                                Some(count_dir_entries(e.path()))
-                            } else {
-                                None
-                            };
-                            FileVariant::Directory { len }
+                            // let len = if dir_entry.with_meta {
+                            //     Some(count_dir_entries(e.path()))
+                            // } else {
+                            //     None
+                            // };
+                            let len = dir_entry.with_meta.then(|| count_dir_entries(e.path()));
+                            FileVariant::Directory { len, permissions }
                         } else {
-                            let size = if dir_entry.with_meta {
-                                Some(calculate_file_size(metadata))
-                            } else {
-                                None
-                            };
-                            FileVariant::File { size }
+                            let size = dir_entry.with_meta.then(|| calculate_file_size(metadata));
+                            FileVariant::File { size, permissions }
                         };
 
                         Some(FileEntry {

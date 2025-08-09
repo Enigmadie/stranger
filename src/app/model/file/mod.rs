@@ -23,6 +23,26 @@ pub fn calculate_file_size(file_metadata: Metadata) -> u64 {
     file_metadata.len() // in bytes
 }
 
+pub fn get_file_permissions(file_metadata: &Metadata) -> String {
+    // let mut permissions = String::new();
+    //
+    // if file_metadata.permissions().readonly() {
+    //     permissions.push('r');
+    // } else {
+    //     permissions.push('w');
+    // }
+    //
+    // if file_metadata.permissions().mode() & 0o111 != 0 {
+    //     permissions.push('x');
+    // } else {
+    //     permissions.push('-');
+    // }
+
+    // Add more permission checks as needed
+
+    format!("{:?}", file_metadata.permissions())
+}
+
 pub fn count_dir_entries<P: AsRef<Path>>(path: P) -> u64 {
     if let Ok(path) = std::fs::read_dir(path) {
         let count = path.count();
@@ -45,7 +65,10 @@ mod tests {
         let dir = PathBuf::from("/src/ui/tests");
         let file = FileEntry {
             name: "test".to_string(),
-            variant: FileVariant::File { size: Some(10) },
+            variant: FileVariant::File {
+                size: Some(10),
+                permissions: None,
+            },
         };
         let path = build_full_path(&dir, &file);
 
@@ -57,7 +80,10 @@ mod tests {
         let dir = PathBuf::from("/src/ui/tests");
         let files = vec![FileEntry {
             name: "test".to_string(),
-            variant: FileVariant::File { size: Some(10) },
+            variant: FileVariant::File {
+                size: Some(10),
+                permissions: None,
+            },
         }];
         let mut positions: HashMap<PathBuf, usize> = HashMap::new();
         positions.insert(dir.clone(), 0);
@@ -66,7 +92,10 @@ mod tests {
         assert_eq!(
             Some(&FileEntry {
                 name: "test".to_string(),
-                variant: FileVariant::File { size: Some(10) },
+                variant: FileVariant::File {
+                    size: Some(10),
+                    permissions: None
+                },
             }),
             current_file,
         );
