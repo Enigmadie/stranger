@@ -92,7 +92,7 @@ impl Footer {
 
             Paragraph::new(footer.unwrap_or(String::from("Press q to quit")))
                 .block(Block::default().borders(Borders::NONE))
-                .alignment(Alignment::Center)
+                .alignment(Alignment::Left)
         }
     }
 }

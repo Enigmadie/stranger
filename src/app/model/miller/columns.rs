@@ -58,11 +58,6 @@ impl MillerColumns {
                         let permissions =
                             dir_entry.with_meta.then(|| get_file_permissions(&metadata));
                         let variant = if metadata.is_dir() {
-                            // let len = if dir_entry.with_meta {
-                            //     Some(count_dir_entries(e.path()))
-                            // } else {
-                            //     None
-                            // };
                             let len = dir_entry.with_meta.then(|| count_dir_entries(e.path()));
                             FileVariant::Directory { len, permissions }
                         } else {

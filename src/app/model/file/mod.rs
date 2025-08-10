@@ -4,7 +4,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::app::model::miller::{entries::FileEntry, positions::get_position};
+use crate::app::{
+    model::miller::{entries::FileEntry, positions::get_position},
+    utils::permissions_to_string,
+};
 
 pub fn get_current_file<'a>(
     positions: &HashMap<PathBuf, usize>,
@@ -24,23 +27,7 @@ pub fn calculate_file_size(file_metadata: Metadata) -> u64 {
 }
 
 pub fn get_file_permissions(file_metadata: &Metadata) -> String {
-    // let mut permissions = String::new();
-    //
-    // if file_metadata.permissions().readonly() {
-    //     permissions.push('r');
-    // } else {
-    //     permissions.push('w');
-    // }
-    //
-    // if file_metadata.permissions().mode() & 0o111 != 0 {
-    //     permissions.push('x');
-    // } else {
-    //     permissions.push('-');
-    // }
-
-    // Add more permission checks as needed
-
-    format!("{:?}", file_metadata.permissions())
+    permissions_to_string(&file_metadata.permissions())
 }
 
 pub fn count_dir_entries<P: AsRef<Path>>(path: P) -> u64 {
