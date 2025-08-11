@@ -4,6 +4,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use chrono::{DateTime, Local};
+use clap::Error;
+
 use crate::app::{
     model::miller::{entries::FileEntry, positions::get_position},
     utils::permissions_to_string,
@@ -28,6 +31,14 @@ pub fn calculate_file_size(file_metadata: Metadata) -> u64 {
 
 pub fn get_file_permissions(file_metadata: &Metadata) -> String {
     permissions_to_string(&file_metadata.permissions())
+}
+
+pub fn get_last_modified(file_metadata: &Metadata) -> Result<String, Error> {
+    let modified_time = file_metadata.modified()?;
+
+    let datetime: DateTime<Local> = modified_time.into();
+    let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S").to_string();
+    Ok(formatted_time)
 }
 
 pub fn count_dir_entries<P: AsRef<Path>>(path: P) -> u64 {
@@ -55,6 +66,7 @@ mod tests {
             variant: FileVariant::File {
                 size: Some(10),
                 permissions: None,
+                last_modified: Some("2023-10-01 12:00".into()),
             },
         };
         let path = build_full_path(&dir, &file);
@@ -70,6 +82,7 @@ mod tests {
             variant: FileVariant::File {
                 size: Some(10),
                 permissions: None,
+                last_modified: Some("2023-10-01 12:00".into()),
             },
         }];
         let mut positions: HashMap<PathBuf, usize> = HashMap::new();
@@ -81,7 +94,8 @@ mod tests {
                 name: "test".to_string(),
                 variant: FileVariant::File {
                     size: Some(10),
-                    permissions: None
+                    permissions: None,
+                    last_modified: Some("2023-10-01 12:00".into()),
                 },
             }),
             current_file,

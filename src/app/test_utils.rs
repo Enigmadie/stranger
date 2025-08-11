@@ -24,6 +24,7 @@ pub fn create_test_state() -> State<'static> {
                     variant: FileVariant::File {
                         size: Some(10),
                         permissions: Some("rwxr-xr-x".into()),
+                        last_modified: Some("2023-10-01 12:00".into()),
                     },
                 },
                 FileEntry {
@@ -31,6 +32,7 @@ pub fn create_test_state() -> State<'static> {
                     variant: FileVariant::File {
                         size: Some(10),
                         permissions: Some("rwxr-xr-x".into()),
+                        last_modified: Some("2023-10-01 12:00".into()),
                     },
                 },
                 FileEntry {
@@ -38,6 +40,7 @@ pub fn create_test_state() -> State<'static> {
                     variant: FileVariant::File {
                         size: Some(10),
                         permissions: Some("rwxr-xr-x".into()),
+                        last_modified: Some("2023-10-01 12:00".into()),
                     },
                 },
             ],

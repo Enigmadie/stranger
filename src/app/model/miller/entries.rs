@@ -5,10 +5,12 @@ pub enum FileVariant {
     Directory {
         len: Option<u64>,
         permissions: Option<String>,
+        last_modified: Option<String>,
     },
     File {
         size: Option<u64>,
         permissions: Option<String>,
+        last_modified: Option<String>,
     },
 }
 

@@ -14,7 +14,7 @@ use crate::app::{
     model::{file::get_current_file, miller::entries::FileVariant, notification::Notification},
     state::State,
     ui::{body::Body, modal::Modal},
-    utils::fs::whoami_info,
+    utils::{format_bytes, fs::whoami_info},
 };
 
 pub fn render(state: &State, frame: &mut Frame<'_>) {
@@ -83,15 +83,40 @@ impl Footer {
                 .block(Block::default().borders(Borders::NONE))
                 .alignment(Alignment::Left)
         } else {
-            let footer =
+            let (permissions, size, last_modified): (String, String, String) =
                 get_current_file(&state.positions_map, &state.current_dir, &state.files[1])
-                    .and_then(|file| match &file.variant {
-                        FileVariant::Directory { permissions, .. } => permissions.clone(),
-                        FileVariant::File { permissions, .. } => permissions.clone(),
-                    });
+                    .map(|file| match &file.variant {
+                        FileVariant::Directory {
+                            permissions,
+                            len,
+                            last_modified,
+                        } => (
+                            permissions.clone().unwrap_or_default(),
+                            len.unwrap_or_default().to_string(),
+                            last_modified.clone().unwrap_or_default(),
+                        ),
+                        FileVariant::File {
+                            permissions,
+                            size,
+                            last_modified,
+                        } => (
+                            permissions.clone().unwrap_or_default(),
+                            size.map(format_bytes).unwrap_or_default(),
+                            last_modified.clone().unwrap_or_default(),
+                        ),
+                    })
+                    .unwrap_or_default();
 
-            Paragraph::new(footer.unwrap_or(String::from("Press q to quit")))
-                .block(Block::default().borders(Borders::NONE))
+            let text = Line::from(vec![
+                Span::styled(permissions, Style::default().fg(Color::LightBlue).bold()),
+                Span::raw(" "),
+                Span::styled(last_modified, Style::default().fg(Color::White).bold()),
+                Span::raw(" "),
+                Span::styled(size, Style::default().fg(Color::LightGreen).bold()),
+            ]);
+
+            Paragraph::new(text)
+                .block(Block::default())
                 .alignment(Alignment::Left)
         }
     }
