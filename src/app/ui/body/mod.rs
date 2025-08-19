@@ -4,33 +4,51 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Flex, Layout},
     prelude::Rect,
-    widgets::{Block, List, ListItem, Widget},
+    widgets::{Block, List, ListItem, Paragraph, Widget},
 };
 
 use crate::app::{
     config::constants::ui::{COLUMN_PERCENTAGE, FIRST_COLUMN_PERCENTAGE},
-    model::miller::positions::get_position,
+    model::{
+        file::get_current_file,
+        miller::{entries::FileVariant, positions::get_position},
+    },
     state::State,
 };
 
 pub mod row;
 pub use row::Row;
 
+#[derive(Clone)]
+enum ColumnWidget<'a> {
+    List(List<'a>),
+    Paragraph(Paragraph<'a>),
+}
+
+impl<'a> Widget for ColumnWidget<'a> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        match self {
+            ColumnWidget::List(list) => list.render(area, buf),
+            ColumnWidget::Paragraph(paragraph) => paragraph.render(area, buf),
+        }
+    }
+}
+
 struct ColumnsWidget<'a> {
-    lists: Vec<List<'a>>,
+    widgets: Vec<ColumnWidget<'a>>,
     layout: Rc<[Rect]>,
 }
 
 impl<'a> ColumnsWidget<'a> {
-    fn new(lists: Vec<List<'a>>, layout: Rc<[Rect]>) -> Self {
-        ColumnsWidget { lists, layout }
+    fn new(widgets: Vec<ColumnWidget<'a>>, layout: Rc<[Rect]>) -> Self {
+        ColumnsWidget { widgets, layout }
     }
 }
 
 impl<'a> Widget for ColumnsWidget<'a> {
     fn render(self, _area: Rect, buf: &mut Buffer) {
-        for (i, list) in self.lists.into_iter().enumerate() {
-            list.render(self.layout[i], buf);
+        for (i, widget) in self.widgets.into_iter().enumerate() {
+            widget.render(self.layout[i], buf);
         }
     }
 }
@@ -58,7 +76,7 @@ impl Body {
             .constraints(constraints)
             .split(area);
 
-        let lists: Vec<List> = state
+        let widgets: Vec<ColumnWidget<'a>> = state
             .files
             .iter()
             .enumerate()
@@ -111,14 +129,28 @@ impl Body {
                         .split(Rect::new(0, 0, col_width as u16, 1)),
                 );
 
-                let list_items: Vec<ListItem> = if is_parent_column && dir.is_empty() {
+                if is_parent_column && dir.is_empty() {
                     // if parent dir is empty
-                    vec![]
+                    ColumnWidget::Paragraph(
+                        Paragraph::new("Parent directory is empty").block(Block::default()),
+                    )
+                } else if is_child_column {
+                    let current_file =
+                        get_current_file(&state.positions_map, &state.current_dir, &dir);
+                    let is_current_column_and_selected_file = is_current_column
+                        && current_file
+                            .map_or(false, |e| matches!(e.variant, FileVariant::File { .. }));
+                    ColumnWidget::Paragraph(
+                        Paragraph::new("Empty directory").block(Block::default()),
+                    )
                 } else if is_current_or_child_column && dir.is_empty() {
                     // if current or child dir are empty
-                    vec![ListItem::new("empty")]
+                    ColumnWidget::Paragraph(
+                        Paragraph::new("Empty directory").block(Block::default()),
+                    )
                 } else {
-                    dir.iter()
+                    let list_items: Vec<ListItem> = dir
+                        .iter()
                         .skip(offset)
                         .take(visible_height)
                         .enumerate()
@@ -134,12 +166,12 @@ impl Body {
                                 &state.mode,
                             )
                         })
-                        .collect()
-                };
-                List::new(list_items).block(Block::default())
+                        .collect();
+                    ColumnWidget::List(List::new(list_items).block(Block::default()))
+                }
             })
             .collect();
 
-        ColumnsWidget::new(lists, layout)
+        ColumnsWidget::new(widgets, layout)
     }
 }
