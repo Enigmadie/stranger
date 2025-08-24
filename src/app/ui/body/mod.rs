@@ -10,10 +10,11 @@ use ratatui::{
 use crate::app::{
     config::constants::ui::{COLUMN_PERCENTAGE, FIRST_COLUMN_PERCENTAGE},
     model::{
-        file::get_current_file,
+        file::{build_full_path, get_current_file},
         miller::{entries::FileVariant, positions::get_position},
     },
     state::State,
+    utils::fs::read_file_preview,
 };
 
 pub mod row;
@@ -131,18 +132,26 @@ impl Body {
 
                 if is_parent_column && dir.is_empty() {
                     // if parent dir is empty
-                    ColumnWidget::Paragraph(
-                        Paragraph::new("Parent directory is empty").block(Block::default()),
-                    )
+                    ColumnWidget::Paragraph(Paragraph::new("").block(Block::default()))
                 } else if is_child_column {
                     let current_file =
-                        get_current_file(&state.positions_map, &state.current_dir, &dir);
-                    let is_current_column_and_selected_file = is_current_column
-                        && current_file
-                            .map_or(false, |e| matches!(e.variant, FileVariant::File { .. }));
-                    ColumnWidget::Paragraph(
-                        Paragraph::new("Empty directory").block(Block::default()),
-                    )
+                        get_current_file(&state.positions_map, &state.current_dir, &state.files[1]);
+                    let is_current_column_and_selected_file =
+                        current_file.is_some_and(|e| matches!(e.variant, FileVariant::File { .. }));
+
+                    let preview = if is_current_column_and_selected_file {
+                        let bytes_size = 1024;
+                        if let Some(file) = current_file {
+                            let filepath = build_full_path(&state.current_dir, file);
+                            read_file_preview(&filepath, bytes_size).unwrap()
+                        } else {
+                            String::from("Empty")
+                        }
+                    } else {
+                        String::from("Empty")
+                    };
+
+                    ColumnWidget::Paragraph(Paragraph::new(preview).block(Block::default()))
                 } else if is_current_or_child_column && dir.is_empty() {
                     // if current or child dir are empty
                     ColumnWidget::Paragraph(
