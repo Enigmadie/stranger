@@ -4,6 +4,7 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Flex, Layout},
     prelude::Rect,
+    text::Line,
     widgets::{Block, List, ListItem, Paragraph, Widget},
 };
 
@@ -14,7 +15,7 @@ use crate::app::{
         miller::{entries::FileVariant, positions::get_position},
     },
     state::State,
-    utils::fs::read_file_preview,
+    ui::preview::highlight_file,
 };
 
 pub mod row;
@@ -133,22 +134,23 @@ impl Body {
                 if is_parent_column && dir.is_empty() {
                     // if parent dir is empty
                     ColumnWidget::Paragraph(Paragraph::new("").block(Block::default()))
-                } else if is_child_column {
+                } else if is_child_column && dir.is_empty() {
                     let current_file =
                         get_current_file(&state.positions_map, &state.current_dir, &state.files[1]);
                     let is_current_column_and_selected_file =
                         current_file.is_some_and(|e| matches!(e.variant, FileVariant::File { .. }));
 
                     let preview = if is_current_column_and_selected_file {
-                        let bytes_size = 1024;
+                        let bytes_size = 2048;
                         if let Some(file) = current_file {
                             let filepath = build_full_path(&state.current_dir, file);
-                            read_file_preview(&filepath, bytes_size).unwrap()
+                            highlight_file(filepath.to_str().unwrap_or(""), bytes_size)
+                                .unwrap_or(vec![Line::from("Error reading file")])
                         } else {
-                            String::from("Empty")
+                            vec![Line::from("Empty")]
                         }
                     } else {
-                        String::from("Empty")
+                        vec![Line::from("Empty")]
                     };
 
                     ColumnWidget::Paragraph(Paragraph::new(preview).block(Block::default()))

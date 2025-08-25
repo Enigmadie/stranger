@@ -1,7 +1,6 @@
 use fs_extra::dir::{self, CopyOptions};
 use std::{
-    fs::File,
-    io::{self, stdout, Read},
+    io::{self, stdout},
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
@@ -141,28 +140,4 @@ pub fn exec(program: &String, arg: &[&str]) -> IoResult<()> {
     )?;
 
     Ok(())
-}
-
-pub fn read_file_preview(file_path: &PathBuf, max_bytes: usize) -> io::Result<String> {
-    match File::open(file_path) {
-        Ok(mut file) => {
-            let mut buffer = vec![0u8; max_bytes];
-            let bytes_read = file.read(&mut buffer)?;
-
-            if is_text_file(&buffer[..bytes_read]) {
-                Ok(String::from_utf8_lossy(&buffer[..bytes_read]).to_string())
-            } else {
-                Ok("<Binary or unsupported file>".to_string())
-            }
-        }
-        Err(e) => {
-            println!("Failed to open file: {}", e);
-            Err(e)
-        }
-    }
-}
-
-fn is_text_file(data: &[u8]) -> bool {
-    data.iter()
-        .all(|&b| b.is_ascii() || b == b'\n' || b == b'\t')
 }
