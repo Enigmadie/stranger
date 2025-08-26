@@ -15,7 +15,7 @@ use crate::app::{
         miller::{entries::FileVariant, positions::get_position},
     },
     state::State,
-    ui::preview::highlight_file,
+    ui::file_preview::highlight_file,
 };
 
 pub mod row;
@@ -106,7 +106,6 @@ impl Body {
                     let max_possible_offset = dir.len().saturating_sub(visible_height);
                     let upper_bound = visible_height - TARGET_POSITION_DOWN; // 30 - 6 = 24;
                     if cursor >= upper_bound {
-                        // 50 >= 24
                         (cursor - upper_bound).min(max_possible_offset)
                     } else {
                         0

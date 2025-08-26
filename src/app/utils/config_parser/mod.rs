@@ -6,7 +6,7 @@ use crate::app::utils::config_parser::default_config::Config;
 
 pub mod default_config;
 
-#[derive(Parser, Debug)] // console flags
+#[derive(Parser, Debug)]
 struct Args {
     #[arg(long)]
     editor: Option<String>,
@@ -25,6 +25,7 @@ pub fn load_config() -> Config {
             Ok(config_content) => match toml::from_str::<Config>(&config_content) {
                 Ok(file_config) => {
                     config.common.editor = file_config.common.editor;
+                    config.bookmarks = file_config.bookmarks;
                 }
                 Err(e) => {
                     eprintln!("Failed to parse config file '{}': {}", config_path, e);

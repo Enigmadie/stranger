@@ -1,6 +1,6 @@
 pub mod body;
+pub mod file_preview;
 pub mod modal;
-pub mod preview;
 
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},

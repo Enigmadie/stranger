@@ -1,8 +1,11 @@
+use std::{collections::HashMap, path::PathBuf};
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)] // config container
 pub struct Config {
     pub common: CommonConfig,
+    pub bookmarks: HashMap<String, PathBuf>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -16,6 +19,7 @@ impl Default for Config {
             common: CommonConfig {
                 editor: "nvim".to_string(),
             },
+            bookmarks: HashMap::new(),
         }
     }
 }
