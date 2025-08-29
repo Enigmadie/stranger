@@ -1,2 +1,5 @@
 [common]
 editor = "nvim"
+
+[bookmarks]
+name = "path"

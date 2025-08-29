@@ -91,4 +91,25 @@ impl Row {
 
         ListItem::new(line).style(style)
     }
+
+    pub fn bookmarks_build<'a>(
+        row_id: usize,
+        file: String,
+        is_current_column: bool,
+        position_id: usize,
+    ) -> ListItem<'a> {
+        let is_selected_column = is_current_column && row_id == position_id;
+        let style = if is_selected_column {
+            Style::default()
+                .bg(Color::LightCyan)
+                .fg(Color::Rgb(0, 0, 0))
+                .bold()
+        } else {
+            Style::default().fg(Color::Gray).bold()
+        };
+
+        let line = Line::from(Span::styled(file, style));
+
+        ListItem::new(line).style(style)
+    }
 }

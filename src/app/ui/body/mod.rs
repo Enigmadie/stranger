@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use ratatui::{
-    buffer::Buffer,
     layout::{Constraint, Direction, Flex, Layout},
     prelude::Rect,
     text::Line,
@@ -15,45 +14,16 @@ use crate::app::{
         miller::{entries::FileVariant, positions::get_position},
     },
     state::State,
-    ui::file_preview::highlight_file,
+    ui::{
+        body::components::column_widget::{ColumnWidget, ColumnsWidget},
+        file_preview::highlight_file,
+    },
 };
 
+pub mod bookmarks;
+pub mod components;
 pub mod row;
 pub use row::Row;
-
-#[derive(Clone)]
-enum ColumnWidget<'a> {
-    List(List<'a>),
-    Paragraph(Paragraph<'a>),
-}
-
-impl<'a> Widget for ColumnWidget<'a> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        match self {
-            ColumnWidget::List(list) => list.render(area, buf),
-            ColumnWidget::Paragraph(paragraph) => paragraph.render(area, buf),
-        }
-    }
-}
-
-struct ColumnsWidget<'a> {
-    widgets: Vec<ColumnWidget<'a>>,
-    layout: Rc<[Rect]>,
-}
-
-impl<'a> ColumnsWidget<'a> {
-    fn new(widgets: Vec<ColumnWidget<'a>>, layout: Rc<[Rect]>) -> Self {
-        ColumnsWidget { widgets, layout }
-    }
-}
-
-impl<'a> Widget for ColumnsWidget<'a> {
-    fn render(self, _area: Rect, buf: &mut Buffer) {
-        for (i, widget) in self.widgets.into_iter().enumerate() {
-            widget.render(self.layout[i], buf);
-        }
-    }
-}
 
 pub struct Body;
 
