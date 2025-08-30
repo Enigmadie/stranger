@@ -7,7 +7,7 @@ use crate::app::{
         miller::{columns::MillerColumns, positions::get_position},
         notification::Notification,
     },
-    state::State,
+    state::{Bookmarks, State},
     ui::modal::{ModalKind, UnderLineModalAction},
     utils::{
         fs::{copy_file_path, create_dir, create_file, exec, paste_file, remove_file, rename_file},
@@ -72,6 +72,10 @@ impl<'a> FileManager for State<'a> {
                                 .into(),
                         });
                     }
+                }
+                UnderLineModalAction::Bookmarks => {
+                    let input_value = self.input.lines().join("");
+                    self.commit_new_bookmark(input_value);
                 }
             },
         };

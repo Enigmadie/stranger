@@ -14,6 +14,7 @@ use ratatui::{
 pub enum UnderLineModalAction {
     Add,
     Edit,
+    Bookmarks,
 }
 
 #[derive(Debug)]
@@ -66,6 +67,7 @@ impl<'a> Widget for Modal<'a> {
                 let title = match action {
                     UnderLineModalAction::Add => "Add File",
                     UnderLineModalAction::Edit => "Rename File",
+                    UnderLineModalAction::Bookmarks => "Add New Bookmark Name",
                 };
 
                 input.set_block(

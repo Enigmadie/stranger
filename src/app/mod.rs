@@ -14,7 +14,7 @@ pub mod test_utils;
 pub mod ui;
 pub mod utils;
 
-use crate::app::state::{FileManager, Mode, Navigation};
+use crate::app::state::{Bookmarks, FileManager, Mode, Navigation};
 use crate::app::utils::config_parser::load_config;
 
 use self::state::State;
@@ -106,6 +106,14 @@ impl<'a> App<'a> {
                         self.state.mark_and_down();
                         self.needs_redraw = true;
                     }
+                    KeyCode::Char('b') => {
+                        self.state.enter_bookmarks_mode();
+                        self.needs_redraw = true;
+                    }
+                    KeyCode::Char('B') => {
+                        self.state.add_to_bookmarks();
+                        self.needs_redraw = true;
+                    }
                     _ => {}
                 },
                 Mode::Insert => match key.code {
@@ -149,6 +157,25 @@ impl<'a> App<'a> {
                     }
                     KeyCode::Char('v') => {
                         self.state.enter_normal_mode();
+                        self.needs_redraw = true;
+                    }
+                    _ => {}
+                },
+                Mode::Bookmarks { .. } => match key.code {
+                    KeyCode::Char('q') => {
+                        self.state.enter_normal_mode();
+                        self.needs_redraw = true;
+                    }
+                    KeyCode::Char('[') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        self.state.enter_normal_mode();
+                        self.needs_redraw = true;
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        let _ = self.state.bookmarks_nagivate_up();
+                        self.needs_redraw = true;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        let _ = self.state.bookmarks_nagivate_down();
                         self.needs_redraw = true;
                     }
                     _ => {}

@@ -2,4 +2,6 @@
 editor = "nvim"
 
 [bookmarks]
-name = "path"
+blog = "/Users/hermes/dev/Blog"
+license = "/Users/hermes/dev/_rust/stranger/LICENSE"
+config = "/Users/hermes/dev/_rust/stranger/config.toml"

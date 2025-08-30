@@ -13,8 +13,11 @@ use ratatui::{
 use crate::app::{
     config::constants::ui::{FOOTER_HEIGHT, HEADER_HEIGHT},
     model::{file::get_current_file, miller::entries::FileVariant, notification::Notification},
-    state::State,
-    ui::{body::Body, modal::Modal},
+    state::{Mode, State},
+    ui::{
+        body::{bookmarks::Bookmarks, Body},
+        modal::Modal,
+    },
     utils::{format_bytes, fs::whoami_info},
 };
 
@@ -35,7 +38,12 @@ pub fn render(state: &State, frame: &mut Frame<'_>) {
     let footer = Footer::build(state, layout[2]);
 
     frame.render_widget(header, layout[0]);
-    frame.render_widget(body, layout[1]);
+    if let Mode::Bookmarks { position_id } = state.mode {
+        let bookmarks = Bookmarks::build(state, position_id, layout[1]);
+        frame.render_widget(bookmarks, layout[1]);
+    } else {
+        frame.render_widget(body, layout[1]);
+    }
     frame.render_widget(footer, layout[2]);
 
     if state.show_popup {

@@ -9,6 +9,7 @@ static ENG: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     map.insert("copied", "Copied {} items!");
     map.insert("deleted", "Deleted {} items!");
     map.insert("pasted", "Pasted!");
+    map.insert("bookmark_added", "Bookmark added!");
     map.insert("items_not_found", "Files not found.");
     map.insert("buffer_empty", "Buffer is empty");
     map.insert("items_not_pasted", "Files not pasted.");

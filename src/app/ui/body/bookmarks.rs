@@ -17,7 +17,7 @@ use crate::app::{
 pub struct Bookmarks;
 
 impl Bookmarks {
-    pub fn build<'a>(state: &'a State, area: Rect) -> impl Widget + 'a {
+    pub fn build<'a>(state: &'a State, position_id: usize, area: Rect) -> impl Widget + 'a {
         let (names, paths): (Vec<&String>, Vec<&PathBuf>) = state.config.bookmarks.iter().unzip();
 
         let layout = Layout::default()
@@ -25,14 +25,14 @@ impl Bookmarks {
             .constraints(vec![Constraint::Percentage(40), Constraint::Percentage(60)])
             .split(area);
 
-        let cursor = 0;
+        let cursor = position_id;
         const TARGET_POSITION_DOWN: usize = 6;
 
         let visible_height = layout[0].height.saturating_sub(2) as usize;
 
         let offset = if names.len() > visible_height {
             let max_possible_offset = names.len().saturating_sub(visible_height);
-            let upper_bound = visible_height - TARGET_POSITION_DOWN; // 30 - 6 = 24;
+            let upper_bound = visible_height - TARGET_POSITION_DOWN;
             if cursor >= upper_bound {
                 (cursor - upper_bound).min(max_possible_offset)
             } else {

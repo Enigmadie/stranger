@@ -17,6 +17,8 @@ use crate::app::utils::config_parser::default_config::Config;
 use crate::app::utils::i18n::Lang;
 pub mod file_managment;
 pub use file_managment::FileManager;
+pub mod bookmarks;
+pub use bookmarks::Bookmarks;
 pub mod navigation;
 pub use navigation::Navigation;
 
@@ -25,6 +27,7 @@ pub enum Mode {
     Normal,
     Insert,
     Visual { init: bool },
+    Bookmarks { position_id: usize },
 }
 
 #[derive(Debug)]
