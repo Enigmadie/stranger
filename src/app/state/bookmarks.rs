@@ -3,9 +3,10 @@ use std::io;
 use crate::app::{
     model::{
         file::{build_full_path, get_current_file},
+        miller::positions::get_position,
         notification::Notification,
     },
-    state::{Mode, State},
+    state::{FileManager, Mode, State},
     ui::modal::ModalKind,
     utils::{config_parser::save_config, i18n::Lang},
 };
@@ -16,6 +17,8 @@ pub trait Bookmarks {
     fn enter_bookmarks_mode(&mut self);
     fn add_to_bookmarks(&mut self);
     fn commit_new_bookmark(&mut self, alias: String);
+    fn delete_from_bookmarks(&mut self);
+    fn open_dir_from_bookmark(&mut self) -> io::Result<()>;
 }
 
 impl<'a> Bookmarks for State<'a> {
@@ -66,5 +69,42 @@ impl<'a> Bookmarks for State<'a> {
             }
             .into()
         }
+    }
+
+    fn delete_from_bookmarks(&mut self) {
+        if let Mode::Bookmarks { position_id } = self.mode {
+            self.config.bookmarks.swap_remove_index(position_id);
+            let _ = save_config(&self.config);
+
+            self.notification = Notification::Info {
+                msg: Lang::en("bookmark_deleted").into(),
+            }
+            .into()
+        }
+    }
+
+    fn open_dir_from_bookmark(&mut self) -> io::Result<()> {
+        if let Mode::Bookmarks { position_id } = self.mode {
+            if let Some((_, value)) = self.config.bookmarks.get_index(position_id) {
+                let millers_id = get_position(&self.positions_map, &self.current_dir);
+                match () {
+                    _ if value.is_dir() => {
+                        self.current_dir = value.clone();
+                        let _ = self.reset_state(millers_id);
+                        self.mode = Mode::Normal;
+                    }
+                    _ if value.is_file() => {
+                        self.execute_file(value.clone());
+                    }
+                    _ => {
+                        self.notification = Notification::Error {
+                            msg: Lang::en("bookmark_invalid").into(),
+                        }
+                        .into();
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 }

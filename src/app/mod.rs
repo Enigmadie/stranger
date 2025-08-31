@@ -178,6 +178,18 @@ impl<'a> App<'a> {
                         let _ = self.state.bookmarks_nagivate_down();
                         self.needs_redraw = true;
                     }
+                    KeyCode::Char('d') => {
+                        self.state.delete_from_bookmarks();
+                        self.needs_redraw = true;
+                    }
+                    KeyCode::Char('l') => {
+                        let _ = self.state.open_dir_from_bookmark();
+                        self.needs_redraw = true;
+                    }
+                    KeyCode::Enter => {
+                        let _ = self.state.open_dir_from_bookmark();
+                        self.needs_redraw = true;
+                    }
                     _ => {}
                 },
             }
