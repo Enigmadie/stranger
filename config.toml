@@ -1,8 +1,0 @@
-[common]
-editor = "nvim"
-
-[bookmarks]
-blog = "/Users/hermes/dev/Blog"
-config = "/Users/hermes/dev/_rust/stranger/config.toml"
-ticket = "/Users/hermes/_work/ticket-system"
-admin = "/Users/hermes/_work/admin"

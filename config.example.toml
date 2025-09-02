@@ -1,0 +1,7 @@
+[common]
+editor = "nvim"
+
+[bookmarks]
+work = "/Users/username/work"
+dev = "/Users/username/dev"
+file_config = "/Users/username/.config/rust/config.toml"
