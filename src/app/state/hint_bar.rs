@@ -10,6 +10,7 @@ pub trait HintBar {
 
 impl<'a> HintBar for State<'a> {
     fn enter_bookmark_hint_bar(&mut self) {
+        self.show_popup = true;
         self.modal_type = ModalKind::HintBar {
             mode: HintBarMode::Bookmarks,
         }
