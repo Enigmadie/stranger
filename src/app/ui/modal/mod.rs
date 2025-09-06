@@ -1,3 +1,5 @@
+pub mod hint_bar;
+
 use crate::app::{
     config::constants::ui::{COLUMN_PERCENTAGE, FIRST_COLUMN_PERCENTAGE, HEADER_HEIGHT},
     model::miller::positions::get_position,
@@ -18,8 +20,14 @@ pub enum UnderLineModalAction {
 }
 
 #[derive(Debug)]
+pub enum HintBarMode {
+    Bookmarks,
+}
+
+#[derive(Debug)]
 pub enum ModalKind {
     UnderLine { action: UnderLineModalAction },
+    HintBar { mode: HintBarMode },
     // Custom { frame: ModalFrame },
 }
 
@@ -44,7 +52,7 @@ pub struct Modal<'a> {
 }
 
 impl<'a> Widget for Modal<'a> {
-    fn render(self, _area: Rect, buf: &mut Buffer) {
+    fn render(self, area: Rect, buf: &mut Buffer) {
         match &self.state.modal_type {
             ModalKind::UnderLine { action } => {
                 let (x, y) = self.get_underline_pos();
@@ -70,6 +78,8 @@ impl<'a> Widget for Modal<'a> {
                     UnderLineModalAction::Bookmarks => "Add New Bookmark Name",
                 };
 
+                hint_bar::build("");
+
                 input.set_block(
                     Block::default()
                         .borders(Borders::ALL)
@@ -80,6 +90,20 @@ impl<'a> Widget for Modal<'a> {
                 if self.state.show_popup {
                     input.render(modal_area, buf);
                 }
+            }
+            ModalKind::HintBar { mode } => {
+                let height = 10;
+                let modal_area = Rect {
+                    x: 0,
+                    y: area.height.saturating_sub(height),
+                    height,
+                    width: area.width,
+                };
+
+                Block::default()
+                    .borders(Borders::ALL)
+                    .style(Style::default().fg(Color::LightGreen).bold())
+                    .render(modal_area, buf);
             }
         }
     }

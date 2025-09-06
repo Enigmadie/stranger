@@ -21,6 +21,8 @@ pub mod bookmarks;
 pub use bookmarks::Bookmarks;
 pub mod navigation;
 pub use navigation::Navigation;
+pub mod hint_bar;
+pub use hint_bar::HintBar;
 
 #[derive(Debug, PartialEq)]
 pub enum Mode {

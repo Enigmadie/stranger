@@ -45,9 +45,8 @@ impl<'a> FileManager for State<'a> {
 
     fn commit_changes(&mut self) {
         let input_value = self.input.lines().join("");
-
-        match &self.modal_type {
-            ModalKind::UnderLine { action } => match action {
+        if let ModalKind::UnderLine { action } = &self.modal_type {
+            match action {
                 UnderLineModalAction::Add => {
                     let is_dir = self.input.lines().last().is_some_and(|e| e.ends_with('/'));
 
@@ -77,8 +76,8 @@ impl<'a> FileManager for State<'a> {
                     let input_value = self.input.lines().join("");
                     self.commit_new_bookmark(input_value);
                 }
-            },
-        };
+            }
+        }
 
         self.enter_normal_mode();
         self.setup_default_input();

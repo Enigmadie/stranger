@@ -14,7 +14,9 @@ pub mod test_utils;
 pub mod ui;
 pub mod utils;
 
-use crate::app::state::{Bookmarks, FileManager, Mode, Navigation};
+use crate::app::state::{Bookmarks, FileManager, HintBar, Mode, Navigation};
+
+use crate::app::ui::modal::{HintBarMode, ModalKind};
 use crate::app::utils::config_parser::load_config;
 
 use self::state::State;
@@ -58,64 +60,80 @@ impl<'a> App<'a> {
         let event = event::read()?;
         if let Event::Key(key) = event {
             match self.state.mode {
-                Mode::Normal => match key.code {
-                    KeyCode::Char('q') => {
-                        self.exit = true;
+                Mode::Normal => {
+                    if let ModalKind::HintBar { mode } = &self.state.modal_type {
+                        match mode {
+                            HintBarMode::Bookmarks => match key.code {
+                                KeyCode::Char('b') => {
+                                    self.state.enter_bookmarks_mode();
+                                }
+                                KeyCode::Char('q') => {
+                                    self.exit = true;
+                                }
+                                _ => {}
+                            },
+                        }
+                    } else {
+                        match key.code {
+                            KeyCode::Char('q') => {
+                                self.exit = true;
+                            }
+                            KeyCode::Char('k') | KeyCode::Up => {
+                                let _ = self.state.navigate_up();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('j') | KeyCode::Down => {
+                                let _ = self.state.navigate_down();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('h') | KeyCode::Left => {
+                                let _ = self.state.navigate_to_parent();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('l') | KeyCode::Right => {
+                                let _ = self.state.navigate_to_child_or_exec();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('r') => {
+                                self.state.rename_file();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('a') => {
+                                self.state.add_file();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('y') => {
+                                self.state.copy_files();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('p') => {
+                                let _ = self.state.paste_files();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('D') => {
+                                self.state.delete_files();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('v') => {
+                                self.state.enter_visual_mode();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char(' ') => {
+                                self.state.mark_and_down();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('b') => {
+                                self.state.enter_bookmark_hint_bar();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('B') => {
+                                self.state.add_to_bookmarks();
+                                self.needs_redraw = true;
+                            }
+                            _ => {}
+                        }
                     }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        let _ = self.state.navigate_up();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        let _ = self.state.navigate_down();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char('h') | KeyCode::Left => {
-                        let _ = self.state.navigate_to_parent();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char('l') | KeyCode::Right => {
-                        let _ = self.state.navigate_to_child_or_exec();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char('r') => {
-                        self.state.rename_file();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char('a') => {
-                        self.state.add_file();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char('y') => {
-                        self.state.copy_files();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char('p') => {
-                        let _ = self.state.paste_files();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char('D') => {
-                        self.state.delete_files();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char('v') => {
-                        self.state.enter_visual_mode();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char(' ') => {
-                        self.state.mark_and_down();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char('b') => {
-                        self.state.enter_bookmarks_mode();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char('B') => {
-                        self.state.add_to_bookmarks();
-                        self.needs_redraw = true;
-                    }
-                    _ => {}
-                },
+                }
                 Mode::Insert => match key.code {
                     KeyCode::Enter => {
                         if self.state.show_popup {

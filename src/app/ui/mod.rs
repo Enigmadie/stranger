@@ -182,6 +182,8 @@ mod tests {
             .filter_map(|cell| cell.symbol().chars().next())
             .collect();
 
-        assert!(text.contains("Press q to quit"));
+        assert!(text.contains("rwxr-xr-x"));
+        assert!(text.contains("10 B"));
+        assert!(text.contains("2023-10-01 12:00"));
     }
 }
