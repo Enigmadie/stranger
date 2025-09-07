@@ -73,10 +73,10 @@ impl<'a> State<'a> {
     }
 
     pub fn reset_state(&mut self, new_pos_id: usize) -> io::Result<()> {
+        self.hide_hint_bar();
         let miller_columns = MillerColumns::build_columns(&self.current_dir, new_pos_id)?;
         self.files = miller_columns.files;
         self.dirs = miller_columns.dirs;
-        self.hide_hint_bar();
         match self.mode {
             Mode::Insert => {
                 self.notification = Notification::Info {

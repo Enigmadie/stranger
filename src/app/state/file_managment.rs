@@ -10,17 +10,25 @@ use crate::app::{
     state::{Bookmarks, HintBar, State},
     ui::modal::{ModalKind, UnderLineModalAction},
     utils::{
-        fs::{copy_file_path, create_dir, create_file, exec, paste_file, remove_file, rename_file},
+        fs::{
+            copy_file_path, create_dir, create_file, exec, paste_file, remove_file,
+            remove_file_to_trash, rename_file,
+        },
         i18n::Lang,
     },
 };
+
+pub enum DeleteMode {
+    Trash,
+    Permanent,
+}
 
 pub trait FileManager {
     fn add_file(&mut self);
     fn rename_file(&mut self);
     fn copy_files(&mut self, action: ClipboardAction);
     fn paste_files(&mut self) -> io::Result<()>;
-    fn delete_files(&mut self);
+    fn delete_files(&mut self, mode: DeleteMode);
     fn commit_changes(&mut self);
     fn execute_file(&mut self, file_name: PathBuf);
 }
@@ -125,7 +133,7 @@ impl<'a> FileManager for State<'a> {
         }
     }
 
-    fn delete_files(&mut self) {
+    fn delete_files(&mut self, mode: DeleteMode) {
         let files_to_delete = if !self.marked.is_empty() {
             self.marked.clone()
         } else {
@@ -140,9 +148,15 @@ impl<'a> FileManager for State<'a> {
 
         for file in files_to_delete {
             let filepath = build_full_path(&self.current_dir, &file);
-            match remove_file(&filepath) {
-                Ok(()) => successful_deletions += 1,
-                Err(e) => errors.push(e),
+            match mode {
+                DeleteMode::Trash => match remove_file_to_trash(&filepath) {
+                    Ok(()) => successful_deletions += 1,
+                    Err(e) => errors.push(e),
+                },
+                DeleteMode::Permanent => match remove_file(&filepath) {
+                    Ok(()) => successful_deletions += 1,
+                    Err(e) => errors.push(e),
+                },
             }
         }
 

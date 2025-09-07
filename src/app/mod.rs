@@ -15,6 +15,7 @@ pub mod ui;
 pub mod utils;
 
 use crate::app::model::clipboard::ClipboardAction;
+use crate::app::state::file_managment::DeleteMode;
 use crate::app::state::{Bookmarks, FileManager, HintBar, Mode, Navigation};
 
 use crate::app::ui::modal::hint_bar::HintBarMode;
@@ -90,7 +91,11 @@ impl<'a> App<'a> {
                                     self.needs_redraw = true;
                                 }
                                 KeyCode::Char('D') => {
-                                    self.state.delete_files();
+                                    self.state.delete_files(DeleteMode::Trash);
+                                    self.needs_redraw = true;
+                                }
+                                KeyCode::Char('x') => {
+                                    self.state.delete_files(DeleteMode::Permanent);
                                     self.needs_redraw = true;
                                 }
                                 KeyCode::Char('q') => {

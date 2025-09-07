@@ -24,11 +24,14 @@ pub trait Bookmarks {
 impl<'a> Bookmarks for State<'a> {
     fn bookmarks_nagivate_down(&mut self) -> io::Result<()> {
         if let Mode::Bookmarks { position_id } = self.mode {
-            let new_position_id = position_id.saturating_add(1);
-            self.mode = Mode::Bookmarks {
-                position_id: new_position_id,
-            };
-            let _ = self.reset_state(0);
+            let incremented_position = position_id.saturating_add(1);
+            if incremented_position < self.config.bookmarks.len() {
+                let new_position_id = incremented_position;
+                self.mode = Mode::Bookmarks {
+                    position_id: new_position_id,
+                };
+                let _ = self.reset_state(0);
+            }
         }
         Ok(())
     }

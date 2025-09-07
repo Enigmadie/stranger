@@ -99,7 +99,7 @@ pub fn remove_file(path: &PathBuf) -> io::Result<()> {
     if !path.exists() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
-            format!("Path does not exist: {}", path.display()),
+            Lang::en_fmt("path_is_not_exists", &[&path.to_string_lossy()]),
         ));
     }
 
@@ -114,6 +114,20 @@ pub fn remove_file(path: &PathBuf) -> io::Result<()> {
         ));
     }
     Ok(())
+}
+
+pub fn remove_file_to_trash(path: &PathBuf) -> io::Result<()> {
+    if !path.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            Lang::en_fmt("path_is_not_exists", &[&path.to_string_lossy()]),
+        ));
+    }
+
+    match trash::delete(path) {
+        Ok(()) => Ok(()),
+        Err(_) => remove_file(path),
+    }
 }
 
 pub fn whoami_info() -> io::Result<String> {

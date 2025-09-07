@@ -28,7 +28,14 @@ pub fn build(area: Rect, buf: &mut Buffer, mode: &HintBarMode) {
 
     let list = match mode {
         HintBarMode::Bookmarks => vec![("b", "Bookmark List"), ("a", "Add Bookmark")],
-        HintBarMode::Delete => vec![("d", "Cut Files"), ("D", "Delete Files")],
+        HintBarMode::Delete => vec![
+            ("d", "Cut Files"),
+            (
+                "D",
+                "Delete Files To Trash (On macOS, if prompted, please grant file acces. If not granted, files will be deleted permanently.)",
+            ),
+            ("x", "Delete Files Permanently"),
+        ],
     };
 
     let rows: Vec<Row> = list

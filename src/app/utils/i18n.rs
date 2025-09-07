@@ -15,13 +15,16 @@ static ENG: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
         "Deleted {} items! Failed {} files: {}",
     );
     map.insert("moved_with_error", "Moved {} items! Failed {} files: {}");
+    map.insert("path_is_not_exists", "Path does not exist: {}");
     map.insert("pasted", "Pasted {} items!");
     map.insert("bookmark_added", "Bookmark added!");
     map.insert("bookmark_deleted", "Bookmark deleted!");
+    map.insert("bookmark_invalid", "Bookmark invalid!");
     map.insert("path_invalid", "Path is invalid");
     map.insert("items_not_found", "Files not found.");
     map.insert("buffer_empty", "Buffer is empty.");
     map.insert("items_not_pasted", "Files not pasted.");
+    map.insert("items_not_deleted", "Files not deleted.");
     map.insert("insert_mode", "--INSERT--");
     map.insert("visual_mode", "--VISUAL--");
     map
