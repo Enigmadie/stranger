@@ -12,7 +12,7 @@ use crate::app::model::miller::columns::MillerColumns;
 use crate::app::model::miller::entries::{DirEntry, FileEntry, FileVariant};
 use crate::app::model::miller::positions::parse_path_positions;
 use crate::app::model::notification::Notification;
-use crate::app::ui::modal::{ModalKind, UnderLineModalAction};
+use crate::app::ui::modal::ModalKind;
 use crate::app::utils::config_parser::default_config::Config;
 use crate::app::utils::i18n::Lang;
 pub mod file_managment;
@@ -39,7 +39,6 @@ pub struct State<'a> {
     pub dirs: [DirEntry; NUM_COLUMNS],
     pub positions_map: HashMap<PathBuf, usize>,
     pub mode: Mode,
-    pub show_popup: bool,
     pub modal_type: ModalKind,
     pub input: TextArea<'a>,
     pub config: Config,
@@ -63,10 +62,7 @@ impl<'a> State<'a> {
             dirs: miller_columns.dirs,
             positions_map: miller_positions,
             mode: Mode::Normal,
-            show_popup: false,
-            modal_type: ModalKind::UnderLine {
-                action: UnderLineModalAction::Add,
-            },
+            modal_type: ModalKind::Disabled,
             input: textarea,
             config,
             from_external_app: false,
@@ -80,6 +76,7 @@ impl<'a> State<'a> {
         let miller_columns = MillerColumns::build_columns(&self.current_dir, new_pos_id)?;
         self.files = miller_columns.files;
         self.dirs = miller_columns.dirs;
+        self.hide_hint_bar();
         match self.mode {
             Mode::Insert => {
                 self.notification = Notification::Info {
@@ -115,13 +112,12 @@ impl<'a> State<'a> {
 
     pub fn enter_normal_mode(&mut self) {
         self.mode = Mode::Normal;
-        self.show_popup = false;
+        self.modal_type = ModalKind::Disabled;
         self.notification = None;
     }
 
     fn enter_insert_mode(&mut self) {
         self.mode = Mode::Insert;
-        self.show_popup = true;
         self.notification = Notification::Info {
             msg: Lang::en("insert_mode").into(),
         }
@@ -165,6 +161,10 @@ impl<'a> State<'a> {
             }
         }
         let _ = self.navigate_down();
+    }
+
+    pub fn clear_marks(&mut self) {
+        self.marked.clear();
     }
 }
 

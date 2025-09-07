@@ -1,6 +1,7 @@
 pub mod config_parser;
 use std::fs::Permissions;
 use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
 pub mod fs;
 pub mod i18n;
 const KB: f64 = 1024.0;
@@ -48,4 +49,29 @@ pub fn permissions_to_string(permissions: &Permissions) -> String {
     result.push(if mode & 0o001 != 0 { 'x' } else { '-' });
 
     result
+}
+
+fn uniquify_path(path: &Path) -> PathBuf {
+    if !path.exists() {
+        return path.to_path_buf();
+    }
+
+    let parent = path.parent().unwrap_or_else(|| Path::new(""));
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    let ext = path.extension().and_then(|e| e.to_str());
+
+    let mut counter = 0;
+    loop {
+        let candidate = match ext {
+            Some(ext) if counter == 0 => parent.join(format!("{}_{}.{}", stem, "", ext)),
+            Some(ext) => parent.join(format!("{}_{}.{}", stem, counter, ext)),
+            None if counter == 0 => parent.join(format!("{}_{}", stem, "")),
+            None => parent.join(format!("{}_{}", stem, counter)),
+        };
+
+        if !candidate.exists() {
+            return candidate;
+        }
+        counter += 1;
+    }
 }

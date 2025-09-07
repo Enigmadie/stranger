@@ -20,16 +20,28 @@ pub enum UnderLineModalAction {
 }
 
 #[derive(Debug)]
-pub enum HintBarMode {
-    Bookmarks,
-}
-
-#[derive(Debug)]
 pub enum ModalKind {
     UnderLine { action: UnderLineModalAction },
-    HintBar { mode: HintBarMode },
+    HintBar { mode: hint_bar::HintBarMode },
     Disabled,
     // Custom { frame: ModalFrame },
+}
+
+impl ModalKind {
+    pub fn is_disabled(&self) -> bool {
+        matches!(self, ModalKind::Disabled)
+    }
+
+    pub fn is_underline(&self) -> bool {
+        matches!(self, ModalKind::UnderLine { .. })
+    }
+
+    pub fn is_hint_bar(&self) -> bool {
+        matches!(self, ModalKind::HintBar { .. })
+    }
+    pub fn is_enabled(&self) -> bool {
+        !self.is_disabled()
+    }
 }
 
 trait _DefaultRect {
@@ -54,44 +66,42 @@ pub struct Modal<'a> {
 
 impl<'a> Widget for Modal<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        if self.state.show_popup {
-            match &self.state.modal_type {
-                ModalKind::UnderLine { action } => {
-                    let (x, y) = self.get_underline_pos();
-                    let (width, _) = self.get_underline_size();
+        match &self.state.modal_type {
+            ModalKind::UnderLine { action } => {
+                let (x, y) = self.get_underline_pos();
+                let (width, _) = self.get_underline_size();
 
-                    let modal_area = Rect {
-                        x,
-                        y,
-                        height: 3,
-                        width,
-                    };
+                let modal_area = Rect {
+                    x,
+                    y,
+                    height: 3,
+                    width,
+                };
 
-                    Clear.render(modal_area, buf);
+                Clear.render(modal_area, buf);
 
-                    let backdrop = Block::default().style(Style::default());
-                    backdrop.render(modal_area, buf);
+                let backdrop = Block::default().style(Style::default());
+                backdrop.render(modal_area, buf);
 
-                    let mut input = self.state.input.clone();
+                let mut input = self.state.input.clone();
 
-                    let title = match action {
-                        UnderLineModalAction::Add => "Add File",
-                        UnderLineModalAction::Edit => "Rename File",
-                        UnderLineModalAction::Bookmarks => "Add New Bookmark Name",
-                    };
+                let title = match action {
+                    UnderLineModalAction::Add => "Add File",
+                    UnderLineModalAction::Edit => "Rename File",
+                    UnderLineModalAction::Bookmarks => "Add New Bookmark Name",
+                };
 
-                    input.set_block(
-                        Block::default()
-                            .borders(Borders::ALL)
-                            .title(title)
-                            .style(Style::default().fg(Color::LightGreen).bold()),
-                    );
+                input.set_block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title(title)
+                        .style(Style::default().fg(Color::LightGreen).bold()),
+                );
 
-                    input.render(modal_area, buf);
-                }
-                ModalKind::HintBar { mode } => hint_bar::build(area, buf, mode),
-                ModalKind::Disabled => {}
+                input.render(modal_area, buf);
             }
+            ModalKind::HintBar { mode } => hint_bar::build(area, buf, mode),
+            ModalKind::Disabled => {}
         }
     }
 }

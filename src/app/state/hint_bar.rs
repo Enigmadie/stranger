@@ -1,33 +1,19 @@
 use crate::app::{
     state::State,
-    ui::modal::{HintBarMode, ModalKind},
+    ui::modal::{hint_bar::HintBarMode, ModalKind},
 };
 
 pub trait HintBar {
-    fn commit_hint_bar(&mut self);
-    fn enter_bookmark_hint_bar(&mut self);
+    fn open_hint_bar(&mut self, mode: HintBarMode);
     fn hide_hint_bar(&mut self);
 }
 
 impl<'a> HintBar for State<'a> {
-    fn enter_bookmark_hint_bar(&mut self) {
-        self.show_popup = true;
-        self.modal_type = ModalKind::HintBar {
-            mode: HintBarMode::Bookmarks,
-        }
-    }
-
-    fn commit_hint_bar(&mut self) {
-        if let ModalKind::HintBar { mode } = &self.modal_type {
-            match mode {
-                HintBarMode::Bookmarks => {
-                    // Commit bookmark logic here
-                }
-            }
-        }
+    fn open_hint_bar(&mut self, mode: HintBarMode) {
+        self.modal_type = ModalKind::HintBar { mode }
     }
 
     fn hide_hint_bar(&mut self) {
-        self.show_popup = false;
+        self.modal_type = ModalKind::Disabled;
     }
 }

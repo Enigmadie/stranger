@@ -5,7 +5,11 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Clear, Row, Table, Widget},
 };
 
-use crate::app::ui::modal::HintBarMode;
+#[derive(Debug)]
+pub enum HintBarMode {
+    Bookmarks,
+    Delete,
+}
 
 pub fn build(area: Rect, buf: &mut Buffer, mode: &HintBarMode) {
     let height = 10;
@@ -23,12 +27,8 @@ pub fn build(area: Rect, buf: &mut Buffer, mode: &HintBarMode) {
     backdrop.render(modal_area, buf);
 
     let list = match mode {
-        HintBarMode::Bookmarks => vec![
-            ("a", "Add Bookmark"),
-            ("d", "Delete Bookmark"),
-            ("l/Enter", "Go to Bookmark"),
-            ("q", "Close"),
-        ],
+        HintBarMode::Bookmarks => vec![("b", "Bookmark List"), ("a", "Add Bookmark")],
+        HintBarMode::Delete => vec![("d", "Cut Files"), ("D", "Delete Files")],
     };
 
     let rows: Vec<Row> = list

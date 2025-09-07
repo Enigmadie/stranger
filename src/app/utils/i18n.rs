@@ -6,9 +6,16 @@ pub struct Lang;
 
 static ENG: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     let mut map = HashMap::new();
-    map.insert("copied", "Copied {} items!");
+    map.insert("in_buffer", "{} items copied in buffer.");
     map.insert("deleted", "Deleted {} items!");
-    map.insert("pasted", "Pasted!");
+    map.insert("moved", "Moved {} items!");
+    map.insert("pasted_with_error", "Pasted {} items! Failed {} files: {}");
+    map.insert(
+        "deleted_with_error",
+        "Deleted {} items! Failed {} files: {}",
+    );
+    map.insert("moved_with_error", "Moved {} items! Failed {} files: {}");
+    map.insert("pasted", "Pasted {} items!");
     map.insert("bookmark_added", "Bookmark added!");
     map.insert("bookmark_deleted", "Bookmark deleted!");
     map.insert("path_invalid", "Path is invalid");
@@ -25,14 +32,25 @@ impl Lang {
         ENG.get(key).copied().unwrap_or("Unknown message")
     }
 
-    pub fn en_fmt(key: &str, args: std::fmt::Arguments<'_>) -> String {
+    pub fn en_fmt(key: &str, args: &[&str]) -> String {
         let template = Lang::en(key);
-        if template.contains("{}") {
-            let mut result = String::new();
-            std::fmt::write(&mut result, args).unwrap();
-            template.replace("{}", &result)
-        } else {
-            template.to_string()
+        let mut result = template.to_string();
+        let placeholder_count = template.matches("{}").count();
+
+        if placeholder_count != args.len() {
+            eprintln!(
+                "Warning: Template '{}' has {} placeholders, but {} args provided: {:?}",
+                template,
+                placeholder_count,
+                args.len(),
+                args
+            );
+            return format!("Invalid format: {} (args: {:?})", template, args);
         }
+
+        for arg in args {
+            result = result.replacen("{}", arg, 1);
+        }
+        result
     }
 }

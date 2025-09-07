@@ -12,7 +12,7 @@ use crossterm::{
 };
 use std::io::Result as IoResult;
 
-use crate::app::utils::i18n::Lang;
+use crate::app::utils::{i18n::Lang, uniquify_path};
 
 pub fn rename_file(full_path: &PathBuf, new_name: String) -> io::Result<()> {
     let parent_dir = full_path
@@ -38,8 +38,18 @@ pub fn create_file(file_name: String, file_path: &PathBuf) -> io::Result<()> {
     Ok(())
 }
 
-pub fn create_dir(dir_name: String) -> io::Result<()> {
-    let _ = std::fs::create_dir_all(dir_name);
+pub fn create_dir(dir_name: String, file_path: &PathBuf) -> io::Result<()> {
+    let full_path = PathBuf::from(file_path).join(dir_name);
+
+    let parent_dir = full_path
+        .parent()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid file path"))?;
+
+    if !parent_dir.exists() {
+        std::fs::create_dir_all(parent_dir)?;
+    }
+
+    std::fs::create_dir_all(&full_path)?;
     Ok(())
 }
 
@@ -69,11 +79,13 @@ pub fn paste_file(src_path: &PathBuf, dest_path: &Path) -> io::Result<()> {
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid path name"))?,
     );
 
+    let uniq_dest = uniquify_path(&dest_dir);
+
     if src_path.is_file() {
-        std::fs::copy(src_path, &dest_dir)?;
+        std::fs::copy(src_path, uniq_dest)?;
     } else if src_path.is_dir() {
         let options = CopyOptions::new().overwrite(true).copy_inside(true);
-        let _ = dir::copy(src_path, &dest_dir, &options);
+        let _ = dir::copy(src_path, uniq_dest, &options);
     } else {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,

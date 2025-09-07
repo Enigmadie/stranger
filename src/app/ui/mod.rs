@@ -46,7 +46,7 @@ pub fn render(state: &State, frame: &mut Frame<'_>) {
     }
     frame.render_widget(footer, layout[2]);
 
-    if state.show_popup {
+    if state.modal_type.is_enabled() {
         let modal = Modal::build(state, area);
         frame.render_widget(modal, area);
     }

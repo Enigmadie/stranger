@@ -14,9 +14,11 @@ pub mod test_utils;
 pub mod ui;
 pub mod utils;
 
+use crate::app::model::clipboard::ClipboardAction;
 use crate::app::state::{Bookmarks, FileManager, HintBar, Mode, Navigation};
 
-use crate::app::ui::modal::{HintBarMode, ModalKind};
+use crate::app::ui::modal::hint_bar::HintBarMode;
+use crate::app::ui::modal::ModalKind;
 use crate::app::utils::config_parser::load_config;
 
 use self::state::State;
@@ -61,20 +63,46 @@ impl<'a> App<'a> {
         if let Event::Key(key) = event {
             match self.state.mode {
                 Mode::Normal => {
-                    if self.state.show_popup {
-                        if let ModalKind::HintBar { mode } = &self.state.modal_type {
-                            match mode {
-                                HintBarMode::Bookmarks => match key.code {
-                                    KeyCode::Char('b') => {
-                                        self.state.enter_bookmarks_mode();
-                                        self.needs_redraw = true;
-                                    }
-                                    KeyCode::Char('q') => {
-                                        self.exit = true;
-                                    }
-                                    _ => {}
-                                },
-                            }
+                    if let ModalKind::HintBar { mode } = &self.state.modal_type {
+                        match mode {
+                            HintBarMode::Bookmarks => match key.code {
+                                KeyCode::Char('b') => {
+                                    self.state.enter_bookmarks_mode();
+                                    self.needs_redraw = true;
+                                }
+                                KeyCode::Char('a') => {
+                                    self.state.add_to_bookmarks();
+                                    self.needs_redraw = true;
+                                }
+                                KeyCode::Char('q') => {
+                                    self.state.hide_hint_bar();
+                                    self.needs_redraw = true;
+                                }
+                                KeyCode::Esc => {
+                                    self.state.hide_hint_bar();
+                                    self.needs_redraw = true;
+                                }
+                                _ => {}
+                            },
+                            HintBarMode::Delete => match key.code {
+                                KeyCode::Char('d') => {
+                                    self.state.copy_files(ClipboardAction::Cut);
+                                    self.needs_redraw = true;
+                                }
+                                KeyCode::Char('D') => {
+                                    self.state.delete_files();
+                                    self.needs_redraw = true;
+                                }
+                                KeyCode::Char('q') => {
+                                    self.state.hide_hint_bar();
+                                    self.needs_redraw = true;
+                                }
+                                KeyCode::Esc => {
+                                    self.state.hide_hint_bar();
+                                    self.needs_redraw = true;
+                                }
+                                _ => {}
+                            },
                         }
                     } else {
                         match key.code {
@@ -106,15 +134,11 @@ impl<'a> App<'a> {
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('y') => {
-                                self.state.copy_files();
+                                self.state.copy_files(ClipboardAction::Copy);
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('p') => {
                                 let _ = self.state.paste_files();
-                                self.needs_redraw = true;
-                            }
-                            KeyCode::Char('D') => {
-                                self.state.delete_files();
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('v') => {
@@ -126,11 +150,11 @@ impl<'a> App<'a> {
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('b') => {
-                                self.state.enter_bookmark_hint_bar();
+                                self.state.open_hint_bar(HintBarMode::Bookmarks);
                                 self.needs_redraw = true;
                             }
-                            KeyCode::Char('B') => {
-                                self.state.add_to_bookmarks();
+                            KeyCode::Char('d') => {
+                                self.state.open_hint_bar(HintBarMode::Delete);
                                 self.needs_redraw = true;
                             }
                             _ => {}
@@ -139,7 +163,7 @@ impl<'a> App<'a> {
                 }
                 Mode::Insert => match key.code {
                     KeyCode::Enter => {
-                        if self.state.show_popup {
+                        if self.state.modal_type.is_underline() {
                             self.state.commit_changes();
                         }
                         self.needs_redraw = true;
@@ -187,7 +211,7 @@ impl<'a> App<'a> {
                         self.state.enter_normal_mode();
                         self.needs_redraw = true;
                     }
-                    KeyCode::Char('[') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    KeyCode::Esc => {
                         self.state.enter_normal_mode();
                         self.needs_redraw = true;
                     }

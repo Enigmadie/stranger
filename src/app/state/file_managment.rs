@@ -7,7 +7,7 @@ use crate::app::{
         miller::{columns::MillerColumns, positions::get_position},
         notification::Notification,
     },
-    state::{Bookmarks, State},
+    state::{Bookmarks, HintBar, State},
     ui::modal::{ModalKind, UnderLineModalAction},
     utils::{
         fs::{copy_file_path, create_dir, create_file, exec, paste_file, remove_file, rename_file},
@@ -18,7 +18,7 @@ use crate::app::{
 pub trait FileManager {
     fn add_file(&mut self);
     fn rename_file(&mut self);
-    fn copy_files(&mut self);
+    fn copy_files(&mut self, action: ClipboardAction);
     fn paste_files(&mut self) -> io::Result<()>;
     fn delete_files(&mut self);
     fn commit_changes(&mut self);
@@ -51,7 +51,7 @@ impl<'a> FileManager for State<'a> {
                     let is_dir = self.input.lines().last().is_some_and(|e| e.ends_with('/'));
 
                     if is_dir {
-                        let _ = create_dir(input_value);
+                        let _ = create_dir(input_value, &self.current_dir);
                     } else {
                         let _ = create_file(input_value, &self.current_dir);
                     }
@@ -83,7 +83,7 @@ impl<'a> FileManager for State<'a> {
         self.setup_default_input();
     }
 
-    fn copy_files(&mut self) {
+    fn copy_files(&mut self, action: ClipboardAction) {
         let files_to_copy = if !self.marked.is_empty() {
             self.marked.clone()
         } else {
@@ -104,12 +104,12 @@ impl<'a> FileManager for State<'a> {
         match copied_filepaths {
             Ok(value) => {
                 self.notification = Notification::Success {
-                    msg: Lang::en_fmt("copied", format_args!("{}", value.len())).into(),
+                    msg: Lang::en_fmt("in_buffer", &[&value.len().to_string()]).into(),
                 }
                 .into();
                 self.clipboard = Clipboard::File {
                     items: value,
-                    action: ClipboardAction::Copy,
+                    action,
                 }
                 .into();
             }
@@ -119,6 +119,9 @@ impl<'a> FileManager for State<'a> {
                 }
                 .into();
             }
+        }
+        if self.modal_type.is_hint_bar() {
+            self.hide_hint_bar();
         }
     }
 
@@ -159,7 +162,7 @@ impl<'a> FileManager for State<'a> {
             .into()
         } else {
             self.notification = Notification::Success {
-                msg: Lang::en_fmt("deleted", format_args!("{}", successful_deletions)).into(),
+                msg: Lang::en_fmt("deleted", &[&successful_deletions.to_string()]).into(),
             }
             .into();
         }
@@ -169,17 +172,67 @@ impl<'a> FileManager for State<'a> {
 
     fn paste_files(&mut self) -> io::Result<()> {
         match &self.clipboard {
-            Some(Clipboard::File { items, .. }) => {
+            Some(Clipboard::File { items, action }) => {
+                let mut copied_files = Vec::new();
+                let mut errors = Vec::new();
+
                 for file in items {
-                    paste_file(file, &self.current_dir)?;
+                    match paste_file(file, &self.current_dir) {
+                        Ok(_) => {
+                            copied_files.push(file.clone());
+                        }
+                        Err(err) => {
+                            errors.push(err);
+                            continue;
+                        }
+                    }
                 }
-                self.clipboard = None;
+
+                if let ClipboardAction::Cut = action {
+                    for file in &copied_files {
+                        if let Err(err) = remove_file(file) {
+                            errors.push(err);
+                        }
+                    }
+                }
+
+                if !errors.is_empty() {
+                    let lang_key_with_err = match action {
+                        ClipboardAction::Copy => "pasted_with_error",
+                        ClipboardAction::Cut => "moved_with_error",
+                        ClipboardAction::Delete => "deleted_with_error",
+                    };
+                    self.notification = Notification::Warn {
+                        msg: Lang::en_fmt(
+                            lang_key_with_err,
+                            &[
+                                &copied_files.len().to_string(),
+                                &errors.len().to_string(),
+                                &errors
+                                    .iter()
+                                    .map(|e| e.to_string())
+                                    .collect::<Vec<_>>()
+                                    .join(", "),
+                            ],
+                        )
+                        .into(),
+                    }
+                    .into();
+                } else {
+                    let lang_key = match action {
+                        ClipboardAction::Copy => "pasted",
+                        ClipboardAction::Cut => "moved",
+                        ClipboardAction::Delete => "deleted",
+                    };
+                    self.notification = Notification::Success {
+                        msg: Lang::en_fmt(lang_key, &[&copied_files.len().to_string()]).into(),
+                    }
+                    .into();
+                }
                 let position_id = get_position(&self.positions_map, &self.current_dir);
                 let _ = self.reset_state(position_id);
-                self.notification = Notification::Success {
-                    msg: Lang::en("pasted").into(),
-                }
-                .into();
+                self.clipboard = None;
+                self.clear_marks();
                 Ok(())
             }
             None => {

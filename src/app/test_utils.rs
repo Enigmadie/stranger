@@ -4,7 +4,7 @@ use tui_textarea::TextArea;
 use crate::app::{
     model::miller::entries::{DirEntry, FileEntry, FileVariant},
     state::{Mode, State},
-    ui::modal::{ModalKind, UnderLineModalAction},
+    ui::modal::ModalKind,
     utils::config_parser::default_config::Config,
 };
 
@@ -61,10 +61,7 @@ pub fn create_test_state() -> State<'static> {
             },
         ],
         mode: Mode::Normal,
-        show_popup: false,
-        modal_type: ModalKind::UnderLine {
-            action: UnderLineModalAction::Add,
-        },
+        modal_type: ModalKind::Disabled,
         positions_map,
         input: TextArea::default(),
         config: Config::default(),
