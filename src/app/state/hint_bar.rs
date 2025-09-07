@@ -6,6 +6,7 @@ use crate::app::{
 pub trait HintBar {
     fn commit_hint_bar(&mut self);
     fn enter_bookmark_hint_bar(&mut self);
+    fn hide_hint_bar(&mut self);
 }
 
 impl<'a> HintBar for State<'a> {
@@ -24,5 +25,9 @@ impl<'a> HintBar for State<'a> {
                 }
             }
         }
+    }
+
+    fn hide_hint_bar(&mut self) {
+        self.show_popup = false;
     }
 }

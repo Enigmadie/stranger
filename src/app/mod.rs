@@ -61,17 +61,20 @@ impl<'a> App<'a> {
         if let Event::Key(key) = event {
             match self.state.mode {
                 Mode::Normal => {
-                    if let ModalKind::HintBar { mode } = &self.state.modal_type {
-                        match mode {
-                            HintBarMode::Bookmarks => match key.code {
-                                KeyCode::Char('b') => {
-                                    self.state.enter_bookmarks_mode();
-                                }
-                                KeyCode::Char('q') => {
-                                    self.exit = true;
-                                }
-                                _ => {}
-                            },
+                    if self.state.show_popup {
+                        if let ModalKind::HintBar { mode } = &self.state.modal_type {
+                            match mode {
+                                HintBarMode::Bookmarks => match key.code {
+                                    KeyCode::Char('b') => {
+                                        self.state.enter_bookmarks_mode();
+                                        self.needs_redraw = true;
+                                    }
+                                    KeyCode::Char('q') => {
+                                        self.exit = true;
+                                    }
+                                    _ => {}
+                                },
+                            }
                         }
                     } else {
                         match key.code {

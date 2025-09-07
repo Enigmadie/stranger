@@ -6,7 +6,7 @@ use crate::app::{
         miller::positions::get_position,
         notification::Notification,
     },
-    state::{FileManager, Mode, State},
+    state::{FileManager, HintBar, Mode, State},
     ui::modal::ModalKind,
     utils::{config_parser::save_config, i18n::Lang},
 };
@@ -46,6 +46,7 @@ impl<'a> Bookmarks for State<'a> {
 
     fn enter_bookmarks_mode(&mut self) {
         self.mode = Mode::Bookmarks { position_id: 0 };
+        self.hide_hint_bar();
     }
 
     fn add_to_bookmarks(&mut self) {

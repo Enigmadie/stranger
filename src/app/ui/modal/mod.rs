@@ -28,6 +28,7 @@ pub enum HintBarMode {
 pub enum ModalKind {
     UnderLine { action: UnderLineModalAction },
     HintBar { mode: HintBarMode },
+    Disabled,
     // Custom { frame: ModalFrame },
 }
 
@@ -89,6 +90,7 @@ impl<'a> Widget for Modal<'a> {
                     input.render(modal_area, buf);
                 }
                 ModalKind::HintBar { mode } => hint_bar::build(area, buf, mode),
+                ModalKind::Disabled => {}
             }
         }
     }
