@@ -63,7 +63,7 @@ impl<'a> FileManager for State<'a> {
                     } else {
                         let _ = create_file(input_value, &self.current_dir);
                     }
-                    let _ = self.reset_state(0);
+                    let _ = self.reset_state_except_notifications(0);
                 }
                 UnderLineModalAction::Edit => {
                     let current_file =
@@ -72,7 +72,7 @@ impl<'a> FileManager for State<'a> {
                         let full_path = build_full_path(&self.current_dir, file);
                         let _ = rename_file(&full_path, input_value);
                         let positiond_id = get_position(&self.positions_map, &self.current_dir);
-                        let _ = self.reset_state(positiond_id);
+                        let _ = self.reset_state_except_notifications(positiond_id);
                     } else {
                         self.notification = Some(Notification::Error {
                             msg: format!("Failed to update file: {}", self.current_dir.display())
@@ -180,8 +180,9 @@ impl<'a> FileManager for State<'a> {
             }
             .into();
         }
+        self.clear_marks();
         let position_id = get_position(&self.positions_map, &self.current_dir);
-        let _ = self.reset_state(position_id.saturating_sub(1));
+        let _ = self.reset_state_except_notifications(position_id.saturating_sub(1));
     }
 
     fn paste_files(&mut self) -> io::Result<()> {
@@ -244,7 +245,7 @@ impl<'a> FileManager for State<'a> {
                     .into();
                 }
                 let position_id = get_position(&self.positions_map, &self.current_dir);
-                let _ = self.reset_state(position_id);
+                let _ = self.reset_state_except_notifications(position_id);
                 self.clipboard = None;
                 self.clear_marks();
                 Ok(())

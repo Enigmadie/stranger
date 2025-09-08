@@ -50,6 +50,10 @@ impl<'a> Bookmarks for State<'a> {
     fn enter_bookmarks_mode(&mut self) {
         self.mode = Mode::Bookmarks { position_id: 0 };
         self.hide_hint_bar();
+        self.notification = Notification::Info {
+            msg: Lang::en("bookmarks_mode").into(),
+        }
+        .into();
     }
 
     fn add_to_bookmarks(&mut self) {

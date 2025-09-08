@@ -15,7 +15,7 @@ static ENG: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
         "Deleted {} items! Failed {} files: {}",
     );
     map.insert("moved_with_error", "Moved {} items! Failed {} files: {}");
-    map.insert("path_is_not_exists", "Path does not exist: {}");
+    map.insert("path_does_not_exist", "Path does not exist: {}");
     map.insert("pasted", "Pasted {} items!");
     map.insert("bookmark_added", "Bookmark added!");
     map.insert("bookmark_deleted", "Bookmark deleted!");
@@ -27,6 +27,7 @@ static ENG: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     map.insert("items_not_deleted", "Files not deleted.");
     map.insert("insert_mode", "--INSERT--");
     map.insert("visual_mode", "--VISUAL--");
+    map.insert("bookmarks_mode", "--BOOKMARKS--");
     map
 });
 

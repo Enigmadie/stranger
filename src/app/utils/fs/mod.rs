@@ -99,7 +99,7 @@ pub fn remove_file(path: &PathBuf) -> io::Result<()> {
     if !path.exists() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
-            Lang::en_fmt("path_is_not_exists", &[&path.to_string_lossy()]),
+            Lang::en_fmt("path_does_not_exist", &[&path.to_string_lossy()]),
         ));
     }
 
@@ -120,7 +120,7 @@ pub fn remove_file_to_trash(path: &PathBuf) -> io::Result<()> {
     if !path.exists() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
-            Lang::en_fmt("path_is_not_exists", &[&path.to_string_lossy()]),
+            Lang::en_fmt("path_does_not_exist", &[&path.to_string_lossy()]),
         ));
     }
 

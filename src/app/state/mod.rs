@@ -72,11 +72,16 @@ impl<'a> State<'a> {
         })
     }
 
-    pub fn reset_state(&mut self, new_pos_id: usize) -> io::Result<()> {
+    fn refresh_state(&mut self, new_pos_id: usize) -> io::Result<()> {
         self.hide_hint_bar();
         let miller_columns = MillerColumns::build_columns(&self.current_dir, new_pos_id)?;
         self.files = miller_columns.files;
         self.dirs = miller_columns.dirs;
+        Ok(())
+    }
+
+    pub fn reset_state(&mut self, new_pos_id: usize) -> io::Result<()> {
+        self.refresh_state(new_pos_id)?;
         match self.mode {
             Mode::Insert => {
                 self.notification = Notification::Info {
@@ -90,10 +95,21 @@ impl<'a> State<'a> {
                 }
                 .into();
             }
+            Mode::Bookmarks { .. } => {
+                self.notification = Notification::Info {
+                    msg: Lang::en("bookmarks_mode").into(),
+                }
+                .into();
+            }
             _ => {
                 self.notification = None;
             }
         }
+        Ok(())
+    }
+
+    pub fn reset_state_except_notifications(&mut self, new_pos_id: usize) -> io::Result<()> {
+        self.refresh_state(new_pos_id)?;
         Ok(())
     }
 
