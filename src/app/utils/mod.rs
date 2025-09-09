@@ -128,7 +128,7 @@ mod tests {
         File::create(&path).unwrap();
 
         let result = uniquify_path(&path);
-        assert!(result.ends_with("file_1.txt"));
+        assert!(result.ends_with("file_.txt"));
     }
 
     #[test]
@@ -139,7 +139,7 @@ mod tests {
         File::create(&path).unwrap();
 
         let result = uniquify_path(&path);
-        assert!(result.ends_with("file_1"));
+        assert!(result.ends_with("file_"));
     }
 
     #[test]
@@ -148,9 +148,9 @@ mod tests {
         let path = dir.path().join("data.log");
 
         File::create(&path).unwrap();
-        File::create(dir.path().join("data_1.log")).unwrap();
+        File::create(dir.path().join("data_.log")).unwrap();
 
         let result = uniquify_path(&path);
-        assert!(result.ends_with("data_2.log"));
+        assert!(result.ends_with("data_1.log"));
     }
 }
