@@ -162,6 +162,10 @@ impl<'a> App<'a> {
                                 self.state.open_hint_bar(HintBarMode::Delete);
                                 self.needs_redraw = true;
                             }
+                            KeyCode::Char('/') => {
+                                self.state.search();
+                                self.needs_redraw = true;
+                            }
                             _ => {}
                         }
                     }

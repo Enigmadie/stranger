@@ -149,6 +149,25 @@ impl<'a> State<'a> {
         .into();
     }
 
+    pub fn search(&mut self) {
+        self.mode = Mode::Insert;
+        self.setup_default_input();
+        // Set notification
+    }
+
+    pub fn commit_search(&mut self) {
+        let query = self.input.lines().join("").to_lowercase();
+
+        let curent_dir = self.files[1]
+            .clone()
+            .into_iter()
+            .filter(|f| f.name.to_lowercase().starts_with(&query))
+            .collect();
+
+        self.files[1] = curent_dir;
+        self.setup_default_input();
+    }
+
     fn setup_default_input(&mut self) {
         let textarea = TextArea::default();
         self.input = textarea;
