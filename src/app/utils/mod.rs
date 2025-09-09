@@ -2,6 +2,7 @@ pub mod config_parser;
 use std::fs::Permissions;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+
 pub mod fs;
 pub mod i18n;
 const KB: f64 = 1024.0;
@@ -73,5 +74,83 @@ fn uniquify_path(path: &Path) -> PathBuf {
             return candidate;
         }
         counter += 1;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_format_bytes() {
+        assert_eq!(format_bytes(500), "500 B");
+        assert_eq!(format_bytes(2048), "2 K");
+        assert_eq!(format_bytes(5_242_880), "5 M");
+        assert_eq!(format_bytes(10_737_418_240), "10 G");
+        assert_eq!(format_bytes(1_234), "1.21 K");
+        assert_eq!(format_bytes(1_234_567), "1.18 M");
+        assert_eq!(format_bytes(1_234_567_890), "1.15 G");
+    }
+
+    #[test]
+    fn test_permissions_all() {
+        let perms = Permissions::from_mode(0o777);
+        assert_eq!(permissions_to_string(&perms), "rwxrwxrwx");
+    }
+
+    #[test]
+    fn test_permissions_none() {
+        let perms = Permissions::from_mode(0o000);
+        assert_eq!(permissions_to_string(&perms), "---------");
+    }
+
+    #[test]
+    fn test_permissions_mixed() {
+        let perms = Permissions::from_mode(0o754);
+        assert_eq!(permissions_to_string(&perms), "rwxr-xr--");
+    }
+    #[test]
+    fn test_unique_when_not_exists() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("file.txt");
+
+        let result = uniquify_path(&path);
+        assert_eq!(result, path);
+    }
+
+    #[test]
+    fn test_unique_with_extension() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("file.txt");
+
+        File::create(&path).unwrap();
+
+        let result = uniquify_path(&path);
+        assert!(result.ends_with("file_1.txt"));
+    }
+
+    #[test]
+    fn test_unique_without_extension() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("file");
+
+        File::create(&path).unwrap();
+
+        let result = uniquify_path(&path);
+        assert!(result.ends_with("file_1"));
+    }
+
+    #[test]
+    fn test_unique_multiple_collisions() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.log");
+
+        File::create(&path).unwrap();
+        File::create(dir.path().join("data_1.log")).unwrap();
+
+        let result = uniquify_path(&path);
+        assert!(result.ends_with("data_2.log"));
     }
 }

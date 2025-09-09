@@ -16,7 +16,7 @@ pub mod utils;
 
 use crate::app::model::clipboard::ClipboardAction;
 use crate::app::state::file_managment::DeleteMode;
-use crate::app::state::{Bookmarks, FileManager, HintBar, Mode, Navigation};
+use crate::app::state::{Bookmarks, FileManager, HintBar, Mode, Navigation, Search};
 
 use crate::app::ui::modal::hint_bar::HintBarMode;
 use crate::app::ui::modal::ModalKind;
@@ -174,6 +174,9 @@ impl<'a> App<'a> {
                     KeyCode::Enter => {
                         if self.state.modal_type.is_underline() {
                             self.state.commit_changes();
+                        }
+                        if self.state.modal_type.is_bottom_line() {
+                            self.state.commit_search();
                         }
                         self.needs_redraw = true;
                     }

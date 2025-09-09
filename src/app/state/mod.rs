@@ -23,6 +23,8 @@ pub mod navigation;
 pub use navigation::Navigation;
 pub mod hint_bar;
 pub use hint_bar::HintBar;
+pub mod search;
+pub use search::Search;
 
 #[derive(Debug, PartialEq)]
 pub enum Mode {
@@ -46,6 +48,7 @@ pub struct State<'a> {
     pub clipboard: Option<Clipboard>,
     pub notification: Option<Notification>,
     pub marked: Vec<FileEntry>,
+    pub search_pattern: Option<String>,
 }
 
 impl<'a> State<'a> {
@@ -69,6 +72,7 @@ impl<'a> State<'a> {
             clipboard: None,
             notification: None,
             marked: vec![],
+            search_pattern: None,
         })
     }
 
@@ -130,6 +134,7 @@ impl<'a> State<'a> {
         self.mode = Mode::Normal;
         self.modal_type = ModalKind::Disabled;
         self.notification = None;
+        self.setup_default_input();
     }
 
     fn enter_insert_mode(&mut self) {
@@ -147,25 +152,6 @@ impl<'a> State<'a> {
             msg: Lang::en("visual_mode").into(),
         }
         .into();
-    }
-
-    pub fn search(&mut self) {
-        self.mode = Mode::Insert;
-        self.setup_default_input();
-        // Set notification
-    }
-
-    pub fn commit_search(&mut self) {
-        let query = self.input.lines().join("").to_lowercase();
-
-        let curent_dir = self.files[1]
-            .clone()
-            .into_iter()
-            .filter(|f| f.name.to_lowercase().starts_with(&query))
-            .collect();
-
-        self.files[1] = curent_dir;
-        self.setup_default_input();
     }
 
     fn setup_default_input(&mut self) {

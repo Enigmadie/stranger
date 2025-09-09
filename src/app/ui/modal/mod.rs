@@ -23,6 +23,7 @@ pub enum UnderLineModalAction {
 pub enum ModalKind {
     UnderLine { action: UnderLineModalAction },
     HintBar { mode: hint_bar::HintBarMode },
+    BottomLine,
     Disabled,
     // Custom { frame: ModalFrame },
 }
@@ -39,6 +40,11 @@ impl ModalKind {
     pub fn is_hint_bar(&self) -> bool {
         matches!(self, ModalKind::HintBar { .. })
     }
+
+    pub fn is_bottom_line(&self) -> bool {
+        matches!(self, ModalKind::BottomLine)
+    }
+
     pub fn is_enabled(&self) -> bool {
         !self.is_disabled()
     }
@@ -97,10 +103,31 @@ impl<'a> Widget for Modal<'a> {
                         .title(title)
                         .style(Style::default().fg(Color::LightGreen).bold()),
                 );
+                input.set_cursor_line_style(Style::default());
 
                 input.render(modal_area, buf);
             }
             ModalKind::HintBar { mode } => hint_bar::build(area, buf, mode),
+            ModalKind::BottomLine => {
+                let modal_area = Rect {
+                    x: 0,
+                    y: area.height.saturating_sub(1),
+                    width: area.width,
+                    height: 1,
+                };
+
+                Clear.render(modal_area, buf);
+
+                let backdrop = Block::default().style(Style::default());
+                backdrop.render(modal_area, buf);
+
+                let mut input = self.state.input.clone();
+
+                input.set_block(Block::default().style(Style::default().fg(Color::White).bold()));
+                input.set_cursor_line_style(Style::default());
+
+                input.render(modal_area, buf);
+            }
             ModalKind::Disabled => {}
         }
     }

@@ -69,5 +69,6 @@ pub fn create_test_state() -> State<'static> {
         clipboard: None,
         notification: None,
         marked: vec![],
+        search_pattern: None,
     }
 }
