@@ -71,9 +71,9 @@ impl MillerColumns {
                             .then(|| get_last_modified(&metadata).unwrap_or(String::from("")));
                         let name = e.file_name().to_string_lossy().into_owned();
 
-                        let is_searched = search_pattern
+                        let is_matched = search_pattern
                             .as_ref()
-                            .is_some_and(|pattern| name.starts_with(pattern));
+                            .is_some_and(|pattern| name.to_lowercase().starts_with(pattern));
 
                         let variant = if metadata.is_dir() {
                             let len = dir_entry.with_meta.then(|| count_dir_entries(e.path()));
@@ -81,7 +81,7 @@ impl MillerColumns {
                                 len,
                                 permissions,
                                 last_modified,
-                                is_searched,
+                                is_matched,
                             }
                         } else {
                             let size = dir_entry.with_meta.then(|| calculate_file_size(metadata));
@@ -89,7 +89,7 @@ impl MillerColumns {
                                 size,
                                 permissions,
                                 last_modified,
-                                is_searched,
+                                is_matched,
                             }
                         };
 

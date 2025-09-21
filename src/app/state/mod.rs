@@ -7,7 +7,7 @@ use tui_textarea::TextArea;
 
 use crate::app::config::constants::model::NUM_COLUMNS;
 use crate::app::model::clipboard::Clipboard;
-use crate::app::model::file::{build_full_path, count_searched_files, get_current_file};
+use crate::app::model::file::{build_full_path, get_current_file};
 use crate::app::model::miller::columns::MillerColumns;
 use crate::app::model::miller::entries::{DirEntry, FileEntry, FileVariant};
 use crate::app::model::miller::positions::parse_path_positions;
@@ -107,13 +107,6 @@ impl<'a> State<'a> {
             Mode::Bookmarks { .. } => {
                 self.notification = Notification::Info {
                     msg: Lang::en("bookmarks_mode").into(),
-                }
-                .into();
-            }
-            Mode::Search => {
-                let searched_files_count = count_searched_files(&self.files[1]);
-                self.notification = Notification::Info {
-                    msg: Lang::en_fmt("search_mode", &[&searched_files_count.to_string()]).into(),
                 }
                 .into();
             }

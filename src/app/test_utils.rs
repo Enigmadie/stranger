@@ -25,7 +25,7 @@ pub fn create_test_state() -> State<'static> {
                         size: Some(10),
                         permissions: Some("rwxr-xr-x".into()),
                         last_modified: Some("2023-10-01 12:00".into()),
-                        is_searched: false,
+                        is_matched: false,
                     },
                 },
                 FileEntry {
@@ -34,7 +34,7 @@ pub fn create_test_state() -> State<'static> {
                         size: Some(10),
                         permissions: Some("rwxr-xr-x".into()),
                         last_modified: Some("2023-10-01 12:00".into()),
-                        is_searched: false,
+                        is_matched: false,
                     },
                 },
                 FileEntry {
@@ -43,7 +43,7 @@ pub fn create_test_state() -> State<'static> {
                         size: Some(10),
                         permissions: Some("rwxr-xr-x".into()),
                         last_modified: Some("2023-10-01 12:00".into()),
-                        is_searched: false,
+                        is_matched: false,
                     },
                 },
             ],

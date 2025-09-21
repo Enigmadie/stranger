@@ -53,12 +53,12 @@ pub fn count_dir_entries<P: AsRef<Path>>(path: P) -> u64 {
     }
 }
 
-pub fn count_searched_files(files: &[FileEntry]) -> usize {
+pub fn count_matched_files(files: &[FileEntry]) -> usize {
     files
         .iter()
         .filter(|f| match f.variant {
-            FileVariant::Directory { is_searched, .. } => is_searched,
-            FileVariant::File { is_searched, .. } => is_searched,
+            FileVariant::Directory { is_matched, .. } => is_matched,
+            FileVariant::File { is_matched, .. } => is_matched,
         })
         .count()
 }
@@ -80,7 +80,7 @@ mod tests {
                 size: Some(10),
                 permissions: None,
                 last_modified: Some("2023-10-01 12:00".into()),
-                is_searched: false,
+                is_matched: false,
             },
         };
         let path = build_full_path(&dir, &file);
@@ -97,7 +97,7 @@ mod tests {
                 size: Some(10),
                 permissions: None,
                 last_modified: Some("2023-10-01 12:00".into()),
-                is_searched: false,
+                is_matched: false,
             },
         }];
         let mut positions: HashMap<PathBuf, usize> = HashMap::new();
@@ -111,7 +111,7 @@ mod tests {
                     size: Some(10),
                     permissions: None,
                     last_modified: Some("2023-10-01 12:00".into()),
-                    is_searched: false,
+                    is_matched: false,
                 },
             }),
             current_file,

@@ -6,13 +6,13 @@ pub enum FileVariant {
         len: Option<u64>,
         permissions: Option<String>,
         last_modified: Option<String>,
-        is_searched: bool,
+        is_matched: bool,
     },
     File {
         size: Option<u64>,
         permissions: Option<String>,
         last_modified: Option<String>,
-        is_searched: bool,
+        is_matched: bool,
     },
 }
 

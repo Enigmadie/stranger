@@ -167,13 +167,18 @@ impl<'a> App<'a> {
                                 self.needs_redraw = true;
                             }
                             KeyCode::Esc => {
-                                self.state.search();
+                                self.state.exit_search_mode();
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('n') => {
                                 if self.state.mode == Mode::Search {
-                                    self.state.next_search();
-                                    self.needs_redraw = true;
+                                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+                                        self.state.next_match("prev".to_string());
+                                        self.needs_redraw = true;
+                                    } else {
+                                        self.state.next_match("next".to_string());
+                                        self.needs_redraw = true;
+                                    }
                                 }
                             }
                             _ => {}
@@ -191,10 +196,6 @@ impl<'a> App<'a> {
                         self.needs_redraw = true;
                     }
                     KeyCode::Esc => {
-                        self.state.enter_normal_mode();
-                        self.needs_redraw = true;
-                    }
-                    KeyCode::Char('[') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         self.state.enter_normal_mode();
                         self.needs_redraw = true;
                     }

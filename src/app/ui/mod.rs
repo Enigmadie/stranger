@@ -12,13 +12,17 @@ use ratatui::{
 
 use crate::app::{
     config::constants::ui::{FOOTER_HEIGHT, HEADER_HEIGHT},
-    model::{file::get_current_file, miller::entries::FileVariant, notification::Notification},
+    model::{
+        file::{count_matched_files, get_current_file},
+        miller::entries::FileVariant,
+        notification::Notification,
+    },
     state::{Mode, State},
     ui::{
         body::{bookmarks::Bookmarks, Body},
         modal::Modal,
     },
-    utils::{format_bytes, fs::whoami_info},
+    utils::{format_bytes, fs::whoami_info, i18n::Lang},
 };
 
 pub fn render(state: &State, frame: &mut Frame<'_>) {
@@ -99,7 +103,7 @@ impl Footer {
                             permissions,
                             len,
                             last_modified,
-                            is_searched: _,
+                            is_matched: _,
                         } => (
                             permissions.clone().unwrap_or_default(),
                             len.unwrap_or_default().to_string(),
@@ -109,7 +113,7 @@ impl Footer {
                             permissions,
                             size,
                             last_modified,
-                            is_searched: _,
+                            is_matched: _,
                         } => (
                             permissions.clone().unwrap_or_default(),
                             size.map(format_bytes).unwrap_or_default(),
@@ -118,14 +122,26 @@ impl Footer {
                     })
                     .unwrap_or_default();
 
-            let text = Line::from(vec![
+            let mut spans = vec![
                 Span::styled(permissions, Style::default().fg(Color::LightBlue).bold()),
                 Span::raw(" "),
                 Span::styled(last_modified, Style::default().fg(Color::White).bold()),
                 Span::raw(" "),
                 Span::styled(size, Style::default().fg(Color::LightGreen).bold()),
-            ]);
+            ];
 
+            if state.mode == Mode::Search && state.search_pattern.is_some() {
+                let matched = count_matched_files(&state.files[1]);
+                if matched > 0 {
+                    let matches = Lang::en_fmt("matches", &[&matched.to_string()]);
+                    spans.extend(vec![
+                        Span::raw(" "),
+                        Span::styled(matches, Style::default().fg(Color::Red).bold()),
+                    ]);
+                }
+            }
+
+            let text = Line::from(spans);
             Paragraph::new(text)
                 .block(Block::default())
                 .alignment(Alignment::Left)
