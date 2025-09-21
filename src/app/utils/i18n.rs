@@ -27,6 +27,7 @@ static ENG: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     map.insert("items_not_deleted", "Files not deleted.");
     map.insert("insert_mode", "--INSERT--");
     map.insert("visual_mode", "--VISUAL--");
+    map.insert("search_mode", "--SEARCH-- Found {} items");
     map.insert("bookmarks_mode", "--BOOKMARKS--");
     map
 });

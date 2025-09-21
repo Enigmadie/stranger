@@ -99,6 +99,7 @@ impl Footer {
                             permissions,
                             len,
                             last_modified,
+                            is_searched: _,
                         } => (
                             permissions.clone().unwrap_or_default(),
                             len.unwrap_or_default().to_string(),
@@ -108,6 +109,7 @@ impl Footer {
                             permissions,
                             size,
                             last_modified,
+                            is_searched: _,
                         } => (
                             permissions.clone().unwrap_or_default(),
                             size.map(format_bytes).unwrap_or_default(),

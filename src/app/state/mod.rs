@@ -7,7 +7,7 @@ use tui_textarea::TextArea;
 
 use crate::app::config::constants::model::NUM_COLUMNS;
 use crate::app::model::clipboard::Clipboard;
-use crate::app::model::file::{build_full_path, get_current_file};
+use crate::app::model::file::{build_full_path, count_searched_files, get_current_file};
 use crate::app::model::miller::columns::MillerColumns;
 use crate::app::model::miller::entries::{DirEntry, FileEntry, FileVariant};
 use crate::app::model::miller::positions::parse_path_positions;
@@ -32,6 +32,7 @@ pub enum Mode {
     Insert,
     Visual { init: bool },
     Bookmarks { position_id: usize },
+    Search,
 }
 
 #[derive(Debug)]
@@ -55,7 +56,7 @@ impl<'a> State<'a> {
     pub fn new(config: Config) -> io::Result<Self> {
         let current_dir = env::current_dir()?;
 
-        let miller_columns = MillerColumns::build_columns(&current_dir, 0)?;
+        let miller_columns = MillerColumns::build_columns(&current_dir, 0, None)?;
         let miller_positions = parse_path_positions(&current_dir);
         let textarea = TextArea::default();
 
@@ -78,7 +79,11 @@ impl<'a> State<'a> {
 
     fn refresh_state(&mut self, new_pos_id: usize) -> io::Result<()> {
         self.hide_hint_bar();
-        let miller_columns = MillerColumns::build_columns(&self.current_dir, new_pos_id)?;
+        let miller_columns = MillerColumns::build_columns(
+            &self.current_dir,
+            new_pos_id,
+            self.search_pattern.clone(),
+        )?;
         self.files = miller_columns.files;
         self.dirs = miller_columns.dirs;
         Ok(())
@@ -102,6 +107,13 @@ impl<'a> State<'a> {
             Mode::Bookmarks { .. } => {
                 self.notification = Notification::Info {
                     msg: Lang::en("bookmarks_mode").into(),
+                }
+                .into();
+            }
+            Mode::Search => {
+                let searched_files_count = count_searched_files(&self.files[1]);
+                self.notification = Notification::Info {
+                    msg: Lang::en_fmt("search_mode", &[&searched_files_count.to_string()]).into(),
                 }
                 .into();
             }

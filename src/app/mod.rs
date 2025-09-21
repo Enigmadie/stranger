@@ -63,7 +63,7 @@ impl<'a> App<'a> {
         let event = event::read()?;
         if let Event::Key(key) = event {
             match self.state.mode {
-                Mode::Normal => {
+                Mode::Normal | Mode::Search => {
                     if let ModalKind::HintBar { mode } = &self.state.modal_type {
                         match mode {
                             HintBarMode::Bookmarks => match key.code {
@@ -165,6 +165,16 @@ impl<'a> App<'a> {
                             KeyCode::Char('/') => {
                                 self.state.search();
                                 self.needs_redraw = true;
+                            }
+                            KeyCode::Esc => {
+                                self.state.search();
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('n') => {
+                                if self.state.mode == Mode::Search {
+                                    self.state.next_search();
+                                    self.needs_redraw = true;
+                                }
                             }
                             _ => {}
                         }

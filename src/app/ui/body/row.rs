@@ -38,22 +38,26 @@ impl Row {
         let is_marked = is_current_column && marked.iter().any(|f| f.name == file.name);
 
         let mut style = match file.variant {
-            FileVariant::Directory { .. } => {
+            FileVariant::Directory { is_searched, .. } => {
                 if is_selected_column {
                     Style::default()
                         .bg(Color::Blue)
                         .fg(Color::Rgb(0, 0, 0))
                         .bold()
+                } else if is_searched {
+                    Style::default().fg(Color::Red).bold()
                 } else {
                     Style::default().fg(Color::Blue).bold()
                 }
             }
-            FileVariant::File { .. } => {
+            FileVariant::File { is_searched, .. } => {
                 if is_selected_column {
                     Style::default()
                         .bg(Color::White)
                         .fg(Color::Rgb(0, 0, 0))
                         .bold()
+                } else if is_searched {
+                    Style::default().fg(Color::Red).bold()
                 } else {
                     Style::default().fg(Color::White).bold()
                 }

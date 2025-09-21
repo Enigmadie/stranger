@@ -1,4 +1,5 @@
 use crate::app::{
+    model::miller::positions::get_position,
     state::{Mode, State},
     ui::modal::ModalKind,
 };
@@ -6,6 +7,7 @@ use crate::app::{
 pub trait Search {
     fn search(&mut self);
     fn commit_search(&mut self);
+    fn next_search(&mut self);
 }
 
 impl<'a> Search for State<'a> {
@@ -17,13 +19,18 @@ impl<'a> Search for State<'a> {
     fn commit_search(&mut self) {
         let query = self.input.lines().join("").to_lowercase();
 
-        let curent_dir = self.files[1]
-            .clone()
-            .into_iter()
-            .filter(|f| f.name.to_lowercase().starts_with(&query))
-            .collect();
-
-        self.files[1] = curent_dir;
+        self.search_pattern = Some(query);
         self.setup_default_input();
+        let positiond_id = get_position(&self.positions_map, &self.current_dir);
+        let _ = self.reset_state(positiond_id);
+    }
+
+    fn next_search(&mut self) {
+        let query = self.input.lines().join("").to_lowercase();
+
+        self.search_pattern = Some(query);
+        self.setup_default_input();
+        let positiond_id = get_position(&self.positions_map, &self.current_dir);
+        let _ = self.reset_state_except_notifications(positiond_id);
     }
 }
