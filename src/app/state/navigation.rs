@@ -8,8 +8,8 @@ use crate::app::{
 pub trait Navigation {
     fn navigate_to_child(&mut self) -> io::Result<()>;
     fn navigate_to_parent(&mut self) -> io::Result<()>;
-    fn navigate_up(&mut self) -> io::Result<()>;
-    fn navigate_down(&mut self) -> io::Result<()>;
+    fn navigate_up(&mut self, step: usize) -> io::Result<()>;
+    fn navigate_down(&mut self, step: usize) -> io::Result<()>;
 }
 
 impl<'a> Navigation for State<'a> {
@@ -31,10 +31,10 @@ impl<'a> Navigation for State<'a> {
         Ok(())
     }
 
-    fn navigate_up(&mut self) -> io::Result<()> {
+    fn navigate_up(&mut self, step: usize) -> io::Result<()> {
         let position_id = get_position(&self.positions_map, &self.current_dir);
         if position_id > 0 {
-            let new_position_id = position_id.saturating_sub(1);
+            let new_position_id = position_id.saturating_sub(step);
 
             if let Mode::Visual { init } = self.mode {
                 if init {
@@ -50,10 +50,12 @@ impl<'a> Navigation for State<'a> {
         Ok(())
     }
 
-    fn navigate_down(&mut self) -> io::Result<()> {
+    fn navigate_down(&mut self, step: usize) -> io::Result<()> {
         let position_id = get_position(&self.positions_map, &self.current_dir);
-        if position_id < self.files[1].len().saturating_sub(1) {
-            let new_position_id = position_id + 1;
+        let last_index = self.files[1].len().saturating_sub(1);
+
+        if !self.files[1].is_empty() {
+            let new_position_id = (position_id + step).min(last_index);
 
             update_dir_position(&mut self.positions_map, &self.current_dir, new_position_id);
             if matches!(self.mode, Mode::Visual { .. }) {
@@ -62,6 +64,7 @@ impl<'a> Navigation for State<'a> {
             }
             let _ = self.reset_state(new_position_id);
         }
+
         Ok(())
     }
 }

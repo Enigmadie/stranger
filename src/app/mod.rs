@@ -115,11 +115,11 @@ impl<'a> App<'a> {
                                 self.exit = true;
                             }
                             KeyCode::Char('k') | KeyCode::Up => {
-                                let _ = self.state.navigate_up();
+                                let _ = self.state.navigate_up(1);
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('j') | KeyCode::Down => {
-                                let _ = self.state.navigate_down();
+                                let _ = self.state.navigate_down(1);
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('h') | KeyCode::Left => {
@@ -159,7 +159,17 @@ impl<'a> App<'a> {
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('d') => {
-                                self.state.open_hint_bar(HintBarMode::Delete);
+                                if key.modifiers.contains(KeyModifiers::CONTROL) {
+                                    let _ = self.state.navigate_down(25);
+                                } else {
+                                    self.state.open_hint_bar(HintBarMode::Delete);
+                                }
+                                self.needs_redraw = true;
+                            }
+                            KeyCode::Char('u') => {
+                                if key.modifiers.contains(KeyModifiers::CONTROL) {
+                                    let _ = self.state.navigate_up(25);
+                                }
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('/') => {
@@ -174,11 +184,10 @@ impl<'a> App<'a> {
                                 if self.state.mode == Mode::Search {
                                     if key.modifiers.contains(KeyModifiers::CONTROL) {
                                         self.state.next_match("prev".to_string());
-                                        self.needs_redraw = true;
                                     } else {
                                         self.state.next_match("next".to_string());
-                                        self.needs_redraw = true;
                                     }
+                                    self.needs_redraw = true;
                                 }
                             }
                             _ => {}
@@ -208,11 +217,11 @@ impl<'a> App<'a> {
                 },
                 Mode::Visual { .. } => match key.code {
                     KeyCode::Char('k') | KeyCode::Up => {
-                        let _ = self.state.navigate_up();
+                        let _ = self.state.navigate_up(1);
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
-                        let _ = self.state.navigate_down();
+                        let _ = self.state.navigate_down(1);
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('[') if key.modifiers.contains(KeyModifiers::CONTROL) => {

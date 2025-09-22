@@ -186,7 +186,7 @@ impl<'a> State<'a> {
                 self.marked.retain(|e| e.name != file.name);
             }
         }
-        let _ = self.navigate_down();
+        let _ = self.navigate_down(1);
     }
 
     pub fn clear_marks(&mut self) {
