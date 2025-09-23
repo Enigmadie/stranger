@@ -16,7 +16,7 @@ pub mod utils;
 
 use crate::app::model::clipboard::ClipboardAction;
 use crate::app::state::file_managment::DeleteMode;
-use crate::app::state::{Bookmarks, FileManager, HintBar, Mode, Navigation, Search};
+use crate::app::state::{Bookmarks, FileManager, HintBar, Mark, Mode, Navigation, Search};
 
 use crate::app::ui::modal::hint_bar::HintBarMode;
 use crate::app::ui::modal::ModalKind;
@@ -61,6 +61,10 @@ impl<'a> App<'a> {
 
     pub fn handle_events(&mut self) -> io::Result<()> {
         let event = event::read()?;
+        if let Event::Resize(_, _) = event {
+            self.needs_redraw = true;
+            return Ok(());
+        }
         if let Event::Key(key) = event {
             match self.state.mode {
                 Mode::Normal | Mode::Search => {
@@ -101,6 +105,20 @@ impl<'a> App<'a> {
                                 KeyCode::Char('q') => {
                                     self.state.hide_hint_bar();
                                     self.needs_redraw = true;
+                                }
+                                KeyCode::Esc => {
+                                    self.state.hide_hint_bar();
+                                    self.needs_redraw = true;
+                                }
+                                _ => {}
+                            },
+                            HintBarMode::Exit => match key.code {
+                                KeyCode::Char('z') | KeyCode::Char('Z') => {
+                                    self.state.switch_to_current_dir();
+                                    self.exit = true;
+                                }
+                                KeyCode::Char('q') | KeyCode::Char('Q') => {
+                                    self.exit = true;
                                 }
                                 KeyCode::Esc => {
                                     self.state.hide_hint_bar();
@@ -158,6 +176,10 @@ impl<'a> App<'a> {
                                 self.state.open_hint_bar(HintBarMode::Bookmarks);
                                 self.needs_redraw = true;
                             }
+                            KeyCode::Char('Z') | KeyCode::Char('z') => {
+                                self.state.open_hint_bar(HintBarMode::Exit);
+                                self.needs_redraw = true;
+                            }
                             KeyCode::Char('d') => {
                                 if key.modifiers.contains(KeyModifiers::CONTROL) {
                                     let _ = self.state.navigate_down(25);
@@ -182,7 +204,7 @@ impl<'a> App<'a> {
                             }
                             KeyCode::Char('n') => {
                                 if self.state.mode == Mode::Search {
-                                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+                                    if key.modifiers.contains(KeyModifiers::SHIFT) {
                                         self.state.next_match("prev".to_string());
                                     } else {
                                         self.state.next_match("next".to_string());
@@ -277,7 +299,6 @@ impl<'a> App<'a> {
 
 impl Drop for App<'_> {
     fn drop(&mut self) {
-        // Ensure terminal cleanup on drop
         if let Err(e) = cleanup_terminal() {
             eprintln!("Failed to cleanup terminal: {}", e);
         }
@@ -285,8 +306,7 @@ impl Drop for App<'_> {
 }
 
 pub fn cleanup_terminal() -> io::Result<()> {
-    disable_raw_mode()?;
-    // execute!(std::io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
+    disable_raw_mode().map_err(io::Error::other)?;
     execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture, Show)?;
     Ok(())
 }

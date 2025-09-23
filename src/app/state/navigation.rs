@@ -1,8 +1,14 @@
 use std::io;
 
 use crate::app::{
-    model::miller::positions::{get_position, update_dir_position},
-    state::{Mode, State},
+    model::{
+        file::{build_full_path, get_current_file},
+        miller::{
+            entries::FileVariant,
+            positions::{get_position, update_dir_position},
+        },
+    },
+    state::{FileManager, Mark, Mode, State},
 };
 
 pub trait Navigation {
@@ -10,6 +16,7 @@ pub trait Navigation {
     fn navigate_to_parent(&mut self) -> io::Result<()>;
     fn navigate_up(&mut self, step: usize) -> io::Result<()>;
     fn navigate_down(&mut self, step: usize) -> io::Result<()>;
+    fn navigate_to_child_or_exec(&mut self) -> io::Result<()>;
 }
 
 impl<'a> Navigation for State<'a> {
@@ -67,6 +74,19 @@ impl<'a> Navigation for State<'a> {
 
         Ok(())
     }
+
+    fn navigate_to_child_or_exec(&mut self) -> io::Result<()> {
+        let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
+        if let Some(file) = current_file {
+            let file_path = build_full_path(&self.current_dir, file);
+            if let FileVariant::File { .. } = file.variant {
+                self.execute_file(file_path);
+            } else {
+                self.navigate_to_child()?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -96,7 +116,7 @@ mod tests {
     fn test_navigate_up() {
         let mut state = create_test_state();
         let initial_position = get_position(&state.positions_map, &state.current_dir);
-        assert!(state.navigate_up().is_ok());
+        assert!(state.navigate_up(1).is_ok());
         let new_position = get_position(&state.positions_map, &state.current_dir);
         assert_eq!(new_position, initial_position.saturating_sub(1));
     }
@@ -110,7 +130,7 @@ mod tests {
             &state.current_dir,
             initial_position,
         );
-        assert!(state.navigate_up().is_ok());
+        assert!(state.navigate_up(1).is_ok());
         let new_position = get_position(&state.positions_map, &state.current_dir);
         assert_eq!(new_position, 0);
     }
@@ -119,7 +139,7 @@ mod tests {
     fn test_navigate_down() {
         let mut state = create_test_state();
         let initial_position = get_position(&state.positions_map, &state.current_dir);
-        assert!(state.navigate_down().is_ok());
+        assert!(state.navigate_down(1).is_ok());
         let new_position = get_position(&state.positions_map, &state.current_dir);
         assert_eq!(new_position, initial_position.saturating_add(1));
     }

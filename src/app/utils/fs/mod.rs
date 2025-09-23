@@ -12,7 +12,10 @@ use crossterm::{
 };
 use std::io::Result as IoResult;
 
-use crate::app::utils::{i18n::Lang, uniquify_path};
+use crate::app::{
+    cleanup_terminal,
+    utils::{i18n::Lang, uniquify_path},
+};
 
 pub fn rename_file(full_path: &PathBuf, new_name: String) -> io::Result<()> {
     let parent_dir = full_path
@@ -166,4 +169,21 @@ pub fn exec(program: &String, arg: &[&str]) -> IoResult<()> {
     )?;
 
     Ok(())
+}
+
+#[cfg(unix)]
+pub fn exec_shell_in(dir: &PathBuf) -> io::Result<()> {
+    use std::os::unix::process::CommandExt;
+
+    cleanup_terminal()?;
+
+    std::env::set_current_dir(dir)?;
+
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+    let err = std::process::Command::new(&shell)
+        .arg("-l")
+        .arg("-i")
+        .exec();
+
+    Err(err)
 }

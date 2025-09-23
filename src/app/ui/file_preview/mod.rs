@@ -21,6 +21,8 @@ pub fn highlight_file(file_path: &str, max_bytes: usize) -> io::Result<Vec<Line<
     let mut content = String::new();
     file.take(max_bytes as u64).read_to_string(&mut content)?;
 
+    content = content.replace('\t', "        ");
+
     let ps = SyntaxSet::load_defaults_newlines();
     let ts = ThemeSet::load_defaults();
 

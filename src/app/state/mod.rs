@@ -7,9 +7,8 @@ use tui_textarea::TextArea;
 
 use crate::app::config::constants::model::NUM_COLUMNS;
 use crate::app::model::clipboard::Clipboard;
-use crate::app::model::file::{build_full_path, get_current_file};
 use crate::app::model::miller::columns::MillerColumns;
-use crate::app::model::miller::entries::{DirEntry, FileEntry, FileVariant};
+use crate::app::model::miller::entries::{DirEntry, FileEntry};
 use crate::app::model::miller::positions::parse_path_positions;
 use crate::app::model::notification::Notification;
 use crate::app::ui::modal::ModalKind;
@@ -25,6 +24,8 @@ pub mod hint_bar;
 pub use hint_bar::HintBar;
 pub mod search;
 pub use search::Search;
+pub mod mark;
+pub use mark::Mark;
 
 #[derive(Debug, PartialEq)]
 pub enum Mode {
@@ -122,19 +123,6 @@ impl<'a> State<'a> {
         Ok(())
     }
 
-    pub fn navigate_to_child_or_exec(&mut self) -> io::Result<()> {
-        let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
-        if let Some(file) = current_file {
-            let file_path = build_full_path(&self.current_dir, file);
-            if let FileVariant::File { .. } = file.variant {
-                self.execute_file(file_path);
-            } else {
-                self.navigate_to_child()?;
-            }
-        }
-        Ok(())
-    }
-
     pub fn enter_normal_mode(&mut self) {
         self.mode = Mode::Normal;
         self.modal_type = ModalKind::Disabled;
@@ -163,67 +151,12 @@ impl<'a> State<'a> {
         let textarea = TextArea::default();
         self.input = textarea;
     }
-
-    pub fn mark_item(&mut self) {
-        let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
-        if let Some(file) = current_file {
-            let found_file = self.marked.iter().any(|f| f.name == file.name);
-            if !found_file {
-                self.marked.push(file.clone());
-            } else {
-                self.marked.retain(|e| e.name != file.name);
-            }
-        }
-    }
-
-    pub fn mark_and_down(&mut self) {
-        let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
-        if let Some(file) = current_file {
-            let found_file = &self.marked.iter().any(|f| f.name == file.name);
-            if !found_file {
-                self.marked.push(file.clone());
-            } else {
-                self.marked.retain(|e| e.name != file.name);
-            }
-        }
-        let _ = self.navigate_down(1);
-    }
-
-    pub fn clear_marks(&mut self) {
-        self.marked.clear();
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::app::test_utils::create_test_state;
-
-    #[test]
-    fn mark_item_adds_file() {
-        let mut state = create_test_state();
-        let initial_length = state.marked.len();
-        state.mark_item();
-        assert_eq!(state.marked.len(), initial_length + 1);
-    }
-
-    #[test]
-    fn mark_item_removes_file() {
-        let mut state = create_test_state();
-        state.mark_item();
-        let initial_length = state.marked.len();
-        state.mark_item();
-        assert_eq!(state.marked.len(), initial_length - 1);
-    }
-
-    #[test]
-    fn marks_and_moves_down() {
-        let mut state = create_test_state();
-        let initial_length = state.marked.len();
-        state.mark_and_down();
-        assert_eq!(state.marked.len(), initial_length + 1);
-        assert_eq!(state.mode, Mode::Normal);
-    }
 
     #[test]
     fn normal_mode_changes_state() {

@@ -3,7 +3,7 @@ use std::rc::Rc;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    widgets::{List, Paragraph, Widget},
+    widgets::{Clear, List, Paragraph, Widget},
 };
 
 #[derive(Clone)]
@@ -39,7 +39,11 @@ impl<'a> ColumnsWidget<'a> {
 impl<'a> Widget for ColumnsWidget<'a> {
     fn render(self, _area: Rect, buf: &mut Buffer) {
         for (i, widget) in self.widgets.into_iter().enumerate() {
-            widget.render(self.layout[i], buf);
+            let col_area = self.layout[i];
+
+            Clear.render(col_area, buf);
+
+            widget.render(col_area, buf);
         }
     }
 }

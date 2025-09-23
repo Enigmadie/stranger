@@ -7,11 +7,11 @@ use crate::app::{
         miller::{columns::MillerColumns, positions::get_position},
         notification::Notification,
     },
-    state::{Bookmarks, HintBar, State},
+    state::{Bookmarks, HintBar, Mark, State},
     ui::modal::{ModalKind, UnderLineModalAction},
     utils::{
         fs::{
-            copy_file_path, create_dir, create_file, exec, paste_file, remove_file,
+            copy_file_path, create_dir, create_file, exec, exec_shell_in, paste_file, remove_file,
             remove_file_to_trash, rename_file,
         },
         i18n::Lang,
@@ -31,6 +31,7 @@ pub trait FileManager {
     fn delete_files(&mut self, mode: DeleteMode);
     fn commit_changes(&mut self);
     fn execute_file(&mut self, file_name: PathBuf);
+    fn switch_to_current_dir(&self);
 }
 
 impl<'a> FileManager for State<'a> {
@@ -263,5 +264,9 @@ impl<'a> FileManager for State<'a> {
     fn execute_file(&mut self, file_name: PathBuf) {
         let _ = exec(&self.config.common.editor, &[&file_name.to_string_lossy()]);
         self.from_external_app = true;
+    }
+
+    fn switch_to_current_dir(&self) {
+        let _ = exec_shell_in(&self.current_dir);
     }
 }

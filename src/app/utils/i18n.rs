@@ -30,6 +30,7 @@ static ENG: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     map.insert("bookmarks_mode", "--BOOKMARKS--");
     map.insert("no_matches", "No more matches for {}");
     map.insert("matches", "Matches: {}");
+    map.insert("path_does_not_exist", "Path does not exist: {}");
     map
 });
 

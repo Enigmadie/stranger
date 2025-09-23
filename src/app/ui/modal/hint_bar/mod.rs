@@ -9,6 +9,7 @@ use ratatui::{
 pub enum HintBarMode {
     Bookmarks,
     Delete,
+    Exit,
 }
 
 pub fn build(area: Rect, buf: &mut Buffer, mode: &HintBarMode) {
@@ -36,13 +37,14 @@ pub fn build(area: Rect, buf: &mut Buffer, mode: &HintBarMode) {
             ),
             ("x", "Delete Files Permanently"),
         ],
+        HintBarMode::Exit => vec![("Z", "Exit into current directory"), ("Q", "Exit into initial directory")],
     };
 
     let rows: Vec<Row> = list
         .iter()
         .map(|(key, action)| {
             Row::new(vec![
-                Cell::from(key.to_string()).style(Style::default().fg(Color::Yellow)),
+                Cell::from(format!(" {key}")).style(Style::default().fg(Color::Yellow)),
                 Cell::from((*action).to_string()),
             ])
         })
