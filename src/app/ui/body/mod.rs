@@ -63,7 +63,7 @@ impl Body {
 
                 let cursor = if is_current_column {
                     position_id
-                } else if is_child_column && col_id < state.dirs.len() {
+                } else if (is_child_column && col_id < state.dirs.len()) || is_parent_column {
                     state.dirs[col_id]
                         .dir_name
                         .as_ref()
@@ -139,7 +139,7 @@ impl Body {
                                 Rc::clone(&row_layout),
                                 row_id + offset,
                                 file,
-                                is_current_or_child_column,
+                                is_current_column,
                                 cursor,
                                 col_width,
                                 &state.marked,

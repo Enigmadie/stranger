@@ -34,7 +34,7 @@ impl Row {
         let meta_width = row_layout[2].width as usize;
         let name = file.name.as_str();
 
-        let is_selected_column = is_current_column && row_id == position_id;
+        let is_selected_column = row_id == position_id;
         let is_marked = is_current_column && marked.iter().any(|f| f.name == file.name);
 
         let mut style = match file.variant {

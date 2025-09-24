@@ -58,7 +58,7 @@ impl<'a> State<'a> {
         let current_dir = env::current_dir()?;
 
         let miller_columns = MillerColumns::build_columns(&current_dir, 0, None)?;
-        let miller_positions = parse_path_positions(&current_dir);
+        let miller_positions = parse_path_positions(&current_dir, &miller_columns.files);
         let textarea = TextArea::default();
 
         Ok(State {
