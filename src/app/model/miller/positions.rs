@@ -11,6 +11,15 @@ pub fn parse_path_positions(
     let mut positions = HashMap::new();
     positions.insert(current_dir.to_path_buf(), ZERO_POSITION);
 
+    update_parent_position(&mut positions, current_dir, column_files);
+    positions
+}
+
+pub fn update_parent_position(
+    positions: &mut HashMap<PathBuf, usize>,
+    current_dir: &PathBuf,
+    column_files: &[Vec<FileEntry>; NUM_COLUMNS],
+) {
     if let Some(parent_name_os) = &current_dir.file_name() {
         let parent_name = parent_name_os.to_string_lossy();
         if let Some(parent_position) = column_files[0].iter().position(|f| f.name == *parent_name) {
@@ -19,8 +28,6 @@ pub fn parse_path_positions(
             }
         }
     }
-
-    positions
 }
 
 pub fn get_position(positions: &HashMap<PathBuf, usize>, dir: &PathBuf) -> usize {

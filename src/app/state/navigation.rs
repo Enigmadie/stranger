@@ -5,7 +5,7 @@ use crate::app::{
         file::{build_full_path, get_current_file},
         miller::{
             entries::FileVariant,
-            positions::{get_position, update_dir_position},
+            positions::{get_position, update_dir_position, update_parent_position},
         },
     },
     state::{FileManager, Mark, Mode, State},
@@ -25,6 +25,7 @@ impl<'a> Navigation for State<'a> {
             self.current_dir = parent.to_path_buf();
             let position_id = get_position(&self.positions_map, &self.current_dir);
             let _ = self.reset_state(position_id);
+            update_parent_position(&mut self.positions_map, &self.current_dir, &self.files);
         }
         Ok(())
     }
