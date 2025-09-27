@@ -18,35 +18,40 @@ impl MillerColumns {
         current_dir: &Path,
         position_id: usize,
         search_pattern: Option<String>,
+        show_hidden_files: bool,
     ) -> io::Result<Self> {
         let selected_dir_entry = DirEntry {
             dir_name: Some(current_dir.to_path_buf()),
             with_meta: true,
         };
-        let selected_dir_files = Self::parse_dir_files(&selected_dir_entry, &search_pattern)?;
+        let selected_dir_files =
+            Self::parse_dir_files(&selected_dir_entry, &search_pattern, show_hidden_files)?;
 
         let parent_dir_entry = DirEntry {
             dir_name: current_dir.parent().map(|e| e.to_path_buf()),
             with_meta: false,
         };
 
-        let parent_dir_files = Self::parse_dir_files(&parent_dir_entry, &search_pattern)?;
+        let parent_dir_files =
+            Self::parse_dir_files(&parent_dir_entry, &search_pattern, show_hidden_files)?;
 
-        let (child_dir_entry, child_dir_files) =
-            if let Some(first_entry) = selected_dir_files.get(position_id) {
-                if matches!(first_entry.variant, FileVariant::Directory { .. }) {
-                    let child_dir_entry = DirEntry {
-                        dir_name: Some(current_dir.join(&first_entry.name)),
-                        with_meta: true,
-                    };
-                    let child_files = Self::parse_dir_files(&child_dir_entry, &search_pattern)?;
-                    (child_dir_entry, child_files)
-                } else {
-                    (DirEntry::empty_dir(), vec![])
-                }
+        let (child_dir_entry, child_dir_files) = if let Some(first_entry) =
+            selected_dir_files.get(position_id)
+        {
+            if matches!(first_entry.variant, FileVariant::Directory { .. }) {
+                let child_dir_entry = DirEntry {
+                    dir_name: Some(current_dir.join(&first_entry.name)),
+                    with_meta: true,
+                };
+                let child_files =
+                    Self::parse_dir_files(&child_dir_entry, &search_pattern, show_hidden_files)?;
+                (child_dir_entry, child_files)
             } else {
                 (DirEntry::empty_dir(), vec![])
-            };
+            }
+        } else {
+            (DirEntry::empty_dir(), vec![])
+        };
 
         Ok(Self {
             files: [parent_dir_files, selected_dir_files, child_dir_files],
@@ -57,6 +62,7 @@ impl MillerColumns {
     fn parse_dir_files(
         dir_entry: &DirEntry,
         search_pattern: &Option<String>,
+        show_hidden_files: bool,
     ) -> io::Result<Vec<FileEntry>> {
         match &dir_entry.dir_name {
             Some(dir) => {
@@ -74,6 +80,10 @@ impl MillerColumns {
                         let is_matched = search_pattern
                             .as_ref()
                             .is_some_and(|pattern| name.to_lowercase().starts_with(pattern));
+
+                        if !show_hidden_files && name.starts_with('.') {
+                            return None;
+                        }
 
                         let variant = if metadata.is_dir() {
                             let len = dir_entry.with_meta.then(|| count_dir_entries(e.path()));

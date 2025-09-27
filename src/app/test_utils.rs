@@ -73,5 +73,6 @@ pub fn create_test_state() -> State<'static> {
         notification: None,
         marked: vec![],
         search_pattern: None,
+        show_hidden_files: false,
     }
 }

@@ -32,6 +32,7 @@ pub trait FileManager {
     fn commit_changes(&mut self);
     fn execute_file(&mut self, file_name: PathBuf);
     fn switch_to_current_dir(&self);
+    fn toggle_hidden_files(&mut self);
 }
 
 impl<'a> FileManager for State<'a> {
@@ -268,5 +269,11 @@ impl<'a> FileManager for State<'a> {
 
     fn switch_to_current_dir(&self) {
         let _ = exec_shell_in(&self.current_dir);
+    }
+
+    fn toggle_hidden_files(&mut self) {
+        self.show_hidden_files = !self.show_hidden_files;
+        let position_id = get_position(&self.positions_map, &self.current_dir);
+        let _ = self.reset_state_except_notifications(position_id);
     }
 }

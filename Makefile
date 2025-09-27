@@ -5,6 +5,7 @@ TARGET   := target/release/$(APP_NAME)
 
 # Сборка релиза
 build:
+	cargo test
 	cargo build --release --locked
 
 # Установка в /usr/local/bin (попросит sudo)

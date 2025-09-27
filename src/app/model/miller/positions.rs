@@ -2,10 +2,13 @@ use crate::app::{
     config::constants::model::{NUM_COLUMNS, ZERO_POSITION},
     model::miller::entries::FileEntry,
 };
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 pub fn parse_path_positions(
-    current_dir: &PathBuf,
+    current_dir: &Path,
     column_files: &[Vec<FileEntry>; NUM_COLUMNS],
 ) -> HashMap<PathBuf, usize> {
     let mut positions = HashMap::new();
@@ -17,7 +20,7 @@ pub fn parse_path_positions(
 
 pub fn update_parent_position(
     positions: &mut HashMap<PathBuf, usize>,
-    current_dir: &PathBuf,
+    current_dir: &Path,
     column_files: &[Vec<FileEntry>; NUM_COLUMNS],
 ) {
     if let Some(parent_name_os) = &current_dir.file_name() {
@@ -37,10 +40,10 @@ pub fn get_position(positions: &HashMap<PathBuf, usize>, dir: &PathBuf) -> usize
 
 pub fn update_dir_position(
     positions: &mut HashMap<PathBuf, usize>,
-    dir: &PathBuf,
+    dir: &Path,
     new_position_id: usize,
 ) {
-    positions.insert(dir.clone(), new_position_id);
+    positions.insert(dir.to_path_buf(), new_position_id);
 }
 
 #[cfg(test)]

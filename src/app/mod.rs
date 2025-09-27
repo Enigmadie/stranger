@@ -141,7 +141,11 @@ impl<'a> App<'a> {
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('h') | KeyCode::Left => {
-                                let _ = self.state.navigate_to_parent();
+                                if key.modifiers.contains(KeyModifiers::CONTROL) {
+                                    self.state.toggle_hidden_files();
+                                } else {
+                                    let _ = self.state.navigate_to_parent();
+                                }
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('l') | KeyCode::Right => {

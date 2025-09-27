@@ -51,13 +51,14 @@ pub struct State<'a> {
     pub notification: Option<Notification>,
     pub marked: Vec<FileEntry>,
     pub search_pattern: Option<String>,
+    pub show_hidden_files: bool,
 }
 
 impl<'a> State<'a> {
     pub fn new(config: Config) -> io::Result<Self> {
         let current_dir = env::current_dir()?;
 
-        let miller_columns = MillerColumns::build_columns(&current_dir, 0, None)?;
+        let miller_columns = MillerColumns::build_columns(&current_dir, 0, None, false)?;
         let miller_positions = parse_path_positions(&current_dir, &miller_columns.files);
         let textarea = TextArea::default();
 
@@ -71,6 +72,7 @@ impl<'a> State<'a> {
             input: textarea,
             config,
             from_external_app: false,
+            show_hidden_files: false,
             clipboard: None,
             notification: None,
             marked: vec![],
@@ -84,6 +86,7 @@ impl<'a> State<'a> {
             &self.current_dir,
             new_pos_id,
             self.search_pattern.clone(),
+            self.show_hidden_files,
         )?;
         self.files = miller_columns.files;
         self.dirs = miller_columns.dirs;
