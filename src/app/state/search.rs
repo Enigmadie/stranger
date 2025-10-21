@@ -29,6 +29,7 @@ impl<'a> Search for State<'a> {
         self.setup_default_input();
         self.mode = Mode::Search;
         let _ = self.reset_state(positiond_id);
+        self.next_match("next".to_string());
     }
 
     fn next_match(&mut self, direction: String) {
