@@ -204,6 +204,7 @@ impl<'a> App<'a> {
                             }
                             KeyCode::Esc => {
                                 self.state.exit_search_mode();
+                                self.state.clear_marks();
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('n') => {
