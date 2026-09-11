@@ -1,7 +1,10 @@
 pub mod config_parser;
 use std::fs::Permissions;
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+};
 
 pub mod fs;
 pub mod i18n;
@@ -53,24 +56,28 @@ pub fn permissions_to_string(permissions: &Permissions) -> String {
 }
 
 fn uniquify_path(path: &Path) -> PathBuf {
-    if !path.exists() {
+    if std::fs::symlink_metadata(path).is_err() {
         return path.to_path_buf();
     }
 
     let parent = path.parent().unwrap_or_else(|| Path::new(""));
-    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-    let ext = path.extension().and_then(|e| e.to_str());
+    let stem = path.file_stem().unwrap_or_default();
+    let ext = path.extension();
 
     let mut counter = 0;
     loop {
-        let candidate = match ext {
-            Some(ext) if counter == 0 => parent.join(format!("{}_{}.{}", stem, "", ext)),
-            Some(ext) => parent.join(format!("{}_{}.{}", stem, counter, ext)),
-            None if counter == 0 => parent.join(format!("{}_{}", stem, "")),
-            None => parent.join(format!("{}_{}", stem, counter)),
-        };
+        let mut name = OsString::from(stem);
+        name.push("_");
+        if counter > 0 {
+            name.push(counter.to_string());
+        }
+        if let Some(ext) = ext {
+            name.push(".");
+            name.push(ext);
+        }
+        let candidate = parent.join(name);
 
-        if !candidate.exists() {
+        if std::fs::symlink_metadata(&candidate).is_err() {
             return candidate;
         }
         counter += 1;

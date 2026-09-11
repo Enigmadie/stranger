@@ -108,7 +108,8 @@ impl<'a> Bookmarks for State<'a> {
                         self.mode = Mode::Normal;
                     }
                     _ if value.is_file() => {
-                        self.execute_file(value.clone());
+                        let file = value.clone();
+                        self.execute_file(&file)?;
                     }
                     _ => {
                         self.notification = Notification::Error {

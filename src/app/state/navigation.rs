@@ -3,10 +3,7 @@ use std::{io, path::PathBuf};
 use crate::app::{
     model::{
         file::{build_full_path, get_current_file},
-        miller::{
-            entries::FileVariant,
-            positions::{get_position, update_dir_position, update_parent_position},
-        },
+        miller::positions::{get_position, update_dir_position, update_parent_position},
     },
     state::{FileManager, Mode, State},
 };
@@ -98,8 +95,8 @@ impl<'a> Navigation for State<'a> {
         let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
         if let Some(file) = current_file {
             let file_path = build_full_path(&self.current_dir, file);
-            if let FileVariant::File { .. } = file.variant {
-                self.execute_file(file_path);
+            if file.variant.is_regular_file() {
+                self.execute_file(&file_path)?;
             } else {
                 self.navigate_to_child()?;
             }

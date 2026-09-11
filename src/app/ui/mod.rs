@@ -63,7 +63,7 @@ impl Header {
     fn build<'a>(state: &'a State, _area: Rect) -> impl Widget + 'a {
         let dir = state.current_dir.display().to_string();
         let file = get_current_file(&state.positions_map, &state.current_dir, &state.files[1])
-            .map(|e| e.name.to_owned())
+            .map(|e| e.display_name.to_owned())
             .unwrap_or(String::from(""));
 
         let user_info = whoami_info().unwrap_or_else(|_| String::from("unknown@localhost"));
@@ -119,6 +119,12 @@ impl Footer {
                             size.map(format_bytes).unwrap_or_default(),
                             last_modified.clone().unwrap_or_default(),
                         ),
+                        FileVariant::Symlink { .. } => {
+                            ("symlink".to_string(), String::new(), String::new())
+                        }
+                        FileVariant::Special { .. } => {
+                            ("special".to_string(), String::new(), String::new())
+                        }
                     })
                     .unwrap_or_default();
 

@@ -1,8 +1,5 @@
 use crate::app::{
-    model::miller::{
-        entries::FileVariant,
-        positions::{get_position, update_dir_position},
-    },
+    model::miller::positions::{get_position, update_dir_position},
     state::{Mode, State},
     ui::modal::ModalKind,
     utils::i18n::Lang,
@@ -50,10 +47,7 @@ impl<'a> Search for State<'a> {
 
             for i in 0..files.len() {
                 let index = (start_index + i) % files.len();
-                if match files[index].variant {
-                    FileVariant::Directory { is_matched, .. } => is_matched,
-                    FileVariant::File { is_matched, .. } => is_matched,
-                } {
+                if files[index].variant.is_matched() {
                     found_index = Some(index);
                     break;
                 }

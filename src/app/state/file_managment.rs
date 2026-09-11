@@ -1,10 +1,16 @@
-use std::{io, path::PathBuf};
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
 
 use crate::app::{
     model::{
         clipboard::{Clipboard, ClipboardAction},
         file::{build_full_path, get_current_file},
-        miller::{columns::MillerColumns, positions::get_position},
+        miller::{
+            columns::MillerColumns,
+            positions::{get_position, update_dir_position},
+        },
         notification::Notification,
     },
     state::{Bookmarks, HintBar, Mark, State},
@@ -30,7 +36,7 @@ pub trait FileManager {
     fn paste_files(&mut self) -> io::Result<()>;
     fn delete_files(&mut self, mode: DeleteMode);
     fn commit_changes(&mut self);
-    fn execute_file(&mut self, file_name: PathBuf);
+    fn execute_file(&mut self, file_name: &Path) -> io::Result<()>;
     fn switch_to_current_dir(&self);
     fn toggle_hidden_files(&mut self);
 }
@@ -44,21 +50,33 @@ fn selected_paths(state: &State<'_>) -> Option<Vec<PathBuf>> {
         .map(|file| vec![build_full_path(&state.current_dir, file)])
 }
 
-fn deletion_paths(paths: Vec<PathBuf>, current_dir: &std::path::Path) -> io::Result<Vec<PathBuf>> {
+fn deletion_paths(paths: Vec<PathBuf>, current_dir: &Path) -> io::Result<Vec<PathBuf>> {
     let current_dir = current_dir.canonicalize()?;
     let mut paths = paths
         .into_iter()
         .map(|path| {
-            let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
-            (path, canonical)
+            let is_symlink = path
+                .symlink_metadata()
+                .is_ok_and(|metadata| metadata.file_type().is_symlink());
+            let canonical = if is_symlink {
+                None
+            } else {
+                Some(path.canonicalize().unwrap_or_else(|_| path.clone()))
+            };
+            (path, canonical, is_symlink)
         })
         .collect::<Vec<_>>();
-    paths.sort_by_key(|(_, canonical)| canonical.components().count());
-    paths.dedup_by(|(_, left), (_, right)| left == right);
+    paths.sort_by_key(|(path, canonical, _)| {
+        canonical.as_ref().unwrap_or(path).components().count()
+    });
+    paths.dedup_by(|(left_path, left, _), (right_path, right, _)| {
+        left_path == right_path || left.is_some() && left == right
+    });
 
     if paths
         .iter()
-        .any(|(_, path)| current_dir == *path || current_dir.starts_with(path))
+        .filter_map(|(_, canonical, _)| canonical.as_ref())
+        .any(|path| current_dir == *path || current_dir.starts_with(path))
     {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -66,13 +84,24 @@ fn deletion_paths(paths: Vec<PathBuf>, current_dir: &std::path::Path) -> io::Res
         ));
     }
 
-    let mut roots: Vec<(PathBuf, PathBuf)> = Vec::new();
-    for (path, canonical) in paths {
-        if !roots.iter().any(|(_, root)| canonical.starts_with(root)) {
-            roots.push((path, canonical));
+    let mut roots: Vec<(PathBuf, Option<PathBuf>, bool)> = Vec::new();
+    for (path, canonical, is_symlink) in paths {
+        let is_nested = roots
+            .iter()
+            .any(|(root_path, root_canonical, root_is_symlink)| {
+                !root_is_symlink
+                    && (path.starts_with(root_path)
+                        || canonical.as_ref().is_some_and(|candidate| {
+                            root_canonical
+                                .as_ref()
+                                .is_some_and(|root| candidate.starts_with(root))
+                        }))
+            });
+        if !is_nested {
+            roots.push((path, canonical, is_symlink));
         }
     }
-    Ok(roots.into_iter().map(|(path, _)| path).collect())
+    Ok(roots.into_iter().map(|(path, _, _)| path).collect())
 }
 
 impl<'a> FileManager for State<'a> {
@@ -318,9 +347,21 @@ impl<'a> FileManager for State<'a> {
         }
     }
 
-    fn execute_file(&mut self, file_name: PathBuf) {
-        let _ = exec(&self.config.common.editor, &[&file_name.to_string_lossy()]);
+    fn execute_file(&mut self, file_name: &Path) -> io::Result<()> {
+        exec(&self.config.common.editor, &[file_name.as_os_str()])?;
         self.from_external_app = true;
+        let position_id = get_position(&self.positions_map, &self.current_dir);
+        self.reset_state_except_notifications(position_id)?;
+        let refreshed_position = position_id.min(self.files[1].len().saturating_sub(1));
+        update_dir_position(
+            &mut self.positions_map,
+            &self.current_dir,
+            refreshed_position,
+        );
+        if refreshed_position != position_id {
+            self.reset_state_except_notifications(refreshed_position)?;
+        }
+        Ok(())
     }
 
     fn switch_to_current_dir(&self) {
@@ -391,6 +432,20 @@ mod tests {
         let paths = deletion_paths(vec![child, parent.clone()], &current).unwrap();
 
         assert_eq!(paths, vec![parent]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn deletion_does_not_resolve_symlink_to_current_directory() {
+        let temp = tempdir().unwrap();
+        let current = temp.path().join("current");
+        let link = temp.path().join("current-link");
+        fs::create_dir(&current).unwrap();
+        std::os::unix::fs::symlink(&current, &link).unwrap();
+
+        let paths = deletion_paths(vec![link.clone()], &current).unwrap();
+
+        assert_eq!(paths, vec![link]);
     }
 
     #[test]

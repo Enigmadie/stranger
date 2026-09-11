@@ -1,5 +1,5 @@
-use fs_extra::dir::{self, CopyOptions};
 use std::{
+    ffi::OsStr,
     fs::{File, OpenOptions},
     io::{self, stdout},
     path::{Component, Path, PathBuf},
@@ -11,8 +11,9 @@ use std::ffi::CString;
 
 use crossterm::{
     cursor::Show,
+    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
-    terminal::{enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
+    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
 };
 use std::io::Result as IoResult;
 
@@ -113,15 +114,10 @@ pub fn create_dir(dir_name: String, file_path: &Path) -> io::Result<()> {
 }
 
 pub fn copy_file_path(file_path: PathBuf) -> Result<PathBuf, io::Error> {
-    let path = PathBuf::from(&file_path);
-    if Path::new(&file_path).exists() {
-        Ok(path)
-    } else {
-        Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            Lang::en("items_not_found"),
-        ))
-    }
+    file_path
+        .symlink_metadata()
+        .map(|_| file_path)
+        .map_err(|_| io::Error::new(io::ErrorKind::NotFound, Lang::en("items_not_found")))
 }
 
 fn reserve_unique_file(path: &Path) -> io::Result<(PathBuf, File)> {
@@ -150,14 +146,76 @@ fn reserve_unique_directory(path: &Path) -> io::Result<PathBuf> {
     }
 }
 
-pub fn paste_file(src_path: &Path, dest_path: &Path) -> io::Result<()> {
-    if !src_path.exists() {
-        return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            format!("Source path does not exist: {}", src_path.display()),
-        ));
+#[cfg(unix)]
+fn create_symlink(target: &Path, link: &Path, _source: &Path) -> io::Result<()> {
+    std::os::unix::fs::symlink(target, link)
+}
+
+#[cfg(windows)]
+fn create_symlink(target: &Path, link: &Path, source: &Path) -> io::Result<()> {
+    if source.metadata()?.is_dir() {
+        std::os::windows::fs::symlink_dir(target, link)
+    } else {
+        std::os::windows::fs::symlink_file(target, link)
     }
-    if !dest_path.is_dir() {
+}
+
+fn copy_symlink(source: &Path, destination: &Path) -> io::Result<()> {
+    let target = std::fs::read_link(source)?;
+    loop {
+        let destination = uniquify_path(destination);
+        match create_symlink(&target, &destination, source) {
+            Ok(()) => return Ok(()),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+fn copy_directory_contents(source: &Path, destination: &Path) -> io::Result<()> {
+    for entry in std::fs::read_dir(source)? {
+        let entry = entry?;
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        let metadata = source_path.symlink_metadata()?;
+        let file_type = metadata.file_type();
+
+        if file_type.is_symlink() {
+            copy_symlink(&source_path, &destination_path)?;
+        } else if file_type.is_file() {
+            std::fs::copy(&source_path, &destination_path)?;
+            std::fs::set_permissions(&destination_path, metadata.permissions())?;
+        } else if file_type.is_dir() {
+            std::fs::create_dir(&destination_path)?;
+            copy_directory_contents(&source_path, &destination_path)?;
+            std::fs::set_permissions(&destination_path, metadata.permissions())?;
+        } else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("Cannot copy special file: {}", source_path.display()),
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub fn paste_file(src_path: &Path, dest_path: &Path) -> io::Result<()> {
+    let source_metadata = src_path.symlink_metadata().map_err(|error| {
+        io::Error::new(
+            error.kind(),
+            format!("Source path does not exist: {}", src_path.display()),
+        )
+    })?;
+    let destination_metadata = dest_path.symlink_metadata().map_err(|error| {
+        io::Error::new(
+            error.kind(),
+            format!(
+                "Destination directory does not exist: {}",
+                dest_path.display()
+            ),
+        )
+    })?;
+    if !destination_metadata.file_type().is_dir() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
             format!(
@@ -167,7 +225,7 @@ pub fn paste_file(src_path: &Path, dest_path: &Path) -> io::Result<()> {
         ));
     }
 
-    if src_path.is_dir() {
+    if source_metadata.file_type().is_dir() {
         let source = src_path.canonicalize()?;
         let destination = dest_path.canonicalize()?;
         if destination == source || destination.starts_with(&source) {
@@ -184,7 +242,10 @@ pub fn paste_file(src_path: &Path, dest_path: &Path) -> io::Result<()> {
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid path name"))?,
     );
 
-    if src_path.is_file() {
+    let source_type = source_metadata.file_type();
+    if source_type.is_symlink() {
+        copy_symlink(src_path, &dest_dir)?;
+    } else if source_type.is_file() {
         let mut source = File::open(src_path)?;
         let permissions = source.metadata()?.permissions();
         let (destination_path, mut destination) = reserve_unique_file(&dest_dir)?;
@@ -195,15 +256,13 @@ pub fn paste_file(src_path: &Path, dest_path: &Path) -> io::Result<()> {
             let _ = std::fs::remove_file(destination_path);
             return Err(error);
         }
-    } else if src_path.is_dir() {
+    } else if source_type.is_dir() {
         let destination = reserve_unique_directory(&dest_dir)?;
-        let options = CopyOptions::new()
-            .overwrite(false)
-            .copy_inside(true)
-            .content_only(true);
-        if let Err(error) = dir::copy(src_path, &destination, &options) {
+        if let Err(error) = copy_directory_contents(src_path, &destination)
+            .and_then(|()| std::fs::set_permissions(&destination, source_metadata.permissions()))
+        {
             let _ = std::fs::remove_dir_all(destination);
-            return Err(io::Error::other(error.to_string()));
+            return Err(error);
         }
     } else {
         return Err(io::Error::new(
@@ -215,28 +274,24 @@ pub fn paste_file(src_path: &Path, dest_path: &Path) -> io::Result<()> {
 }
 
 pub fn remove_file(path: &Path) -> io::Result<()> {
-    if !path.exists() {
-        return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            Lang::en_fmt("path_does_not_exist", &[&path.to_string_lossy()]),
-        ));
-    }
+    let metadata = path.symlink_metadata().map_err(|error| {
+        io::Error::new(
+            error.kind(),
+            format!("Path does not exist: {}", path.display()),
+        )
+    })?;
+    let file_type = metadata.file_type();
 
-    if path.is_file() {
-        std::fs::remove_file(path)?;
-    } else if path.is_dir() {
+    if file_type.is_dir() && !file_type.is_symlink() {
         std::fs::remove_dir_all(path)?;
     } else {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            Lang::en("items_not_deleted"),
-        ));
+        std::fs::remove_file(path)?;
     }
     Ok(())
 }
 
 pub fn remove_file_to_trash(path: &Path) -> io::Result<()> {
-    if !path.exists() {
+    if path.symlink_metadata().is_err() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
             Lang::en_fmt("path_does_not_exist", &[&path.to_string_lossy()]),
@@ -262,20 +317,32 @@ pub fn whoami_info() -> io::Result<String> {
     Ok(format!("{}@{}", username, hostname))
 }
 
-pub fn exec(program: &String, arg: &[&str]) -> IoResult<()> {
-    let _ = Command::new(program)
-        .args(arg)
+pub fn exec(program: &str, args: &[&OsStr]) -> IoResult<()> {
+    suspend_terminal()?;
+    let command_result = Command::new(program)
+        .args(args)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .status()
-        .expect("couldn't run program");
+        .status();
 
+    let resume_result = resume_terminal();
+    command_result?;
+    resume_result
+}
+
+fn suspend_terminal() -> io::Result<()> {
+    disable_raw_mode()?;
+    execute!(stdout(), DisableMouseCapture, Show)
+}
+
+fn resume_terminal() -> io::Result<()> {
     enable_raw_mode()?;
 
     execute!(
         stdout(),
         EnterAlternateScreen,
+        EnableMouseCapture,
         Clear(ClearType::All),
         Show,
         crossterm::cursor::MoveTo(0, 0)
@@ -401,5 +468,56 @@ mod tests {
             fs::read_to_string(destination.join("folder_/nested.md")).unwrap(),
             "nested"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn paste_copies_symlink_without_following_it() {
+        let temp = tempdir().unwrap();
+        let source = temp.path().join("source");
+        let destination = temp.path().join("destination");
+        fs::create_dir(&source).unwrap();
+        fs::create_dir(&destination).unwrap();
+        fs::write(source.join("target"), "content").unwrap();
+        std::os::unix::fs::symlink("target", source.join("link")).unwrap();
+
+        paste_file(&source.join("link"), &destination).unwrap();
+
+        let copied = destination.join("link");
+        assert!(copied.symlink_metadata().unwrap().file_type().is_symlink());
+        assert_eq!(fs::read_link(copied).unwrap(), PathBuf::from("target"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn deleting_directory_symlink_keeps_target() {
+        let temp = tempdir().unwrap();
+        let target = temp.path().join("target");
+        let link = temp.path().join("link");
+        fs::create_dir(&target).unwrap();
+        fs::write(target.join("keep"), "content").unwrap();
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        remove_file(&link).unwrap();
+
+        assert!(target.join("keep").exists());
+        assert!(link.symlink_metadata().is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn paste_rejects_special_files() {
+        use std::{ffi::CString, os::unix::ffi::OsStrExt};
+
+        let temp = tempdir().unwrap();
+        let destination = temp.path().join("destination");
+        let fifo = temp.path().join("pipe");
+        fs::create_dir(&destination).unwrap();
+        let fifo_c = CString::new(fifo.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo_c.as_ptr(), 0o600) }, 0);
+
+        let error = paste_file(&fifo, &destination).unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
     }
 }

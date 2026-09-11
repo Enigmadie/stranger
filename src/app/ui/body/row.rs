@@ -34,9 +34,11 @@ impl Row {
         let meta = match file.variant {
             FileVariant::Directory { len, .. } => len.map(|e| e.to_string()).unwrap_or_default(),
             FileVariant::File { size, .. } => size.map(format_bytes).unwrap_or_default(),
+            FileVariant::Symlink { .. } => "link".to_string(),
+            FileVariant::Special { .. } => "special".to_string(),
         };
         let meta_width = row_layout[2].width as usize;
-        let name = file.name.as_str();
+        let name = file.display_name.as_str();
 
         let is_selected_row = row_id == context.position_id;
 
@@ -63,6 +65,24 @@ impl Row {
                     Style::default().fg(Color::Red).bold()
                 } else {
                     Style::default().fg(Color::White).bold()
+                }
+            }
+            FileVariant::Symlink { is_matched } => {
+                if is_selected_row {
+                    Style::default().bg(Color::Cyan).fg(Color::Black).bold()
+                } else if is_matched {
+                    Style::default().fg(Color::Red).bold()
+                } else {
+                    Style::default().fg(Color::Cyan).bold()
+                }
+            }
+            FileVariant::Special { is_matched } => {
+                if is_selected_row {
+                    Style::default().bg(Color::Magenta).fg(Color::Black).bold()
+                } else if is_matched {
+                    Style::default().fg(Color::Red).bold()
+                } else {
+                    Style::default().fg(Color::Magenta).bold()
                 }
             }
         };

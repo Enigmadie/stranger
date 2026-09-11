@@ -24,8 +24,10 @@ pub fn update_parent_position(
     column_files: &[Vec<FileEntry>; NUM_COLUMNS],
 ) {
     if let Some(parent_name_os) = &current_dir.file_name() {
-        let parent_name = parent_name_os.to_string_lossy();
-        if let Some(parent_position) = column_files[0].iter().position(|f| f.name == *parent_name) {
+        if let Some(parent_position) = column_files[0]
+            .iter()
+            .position(|f| f.name == *parent_name_os)
+        {
             if let Some(parent_dir) = current_dir.parent() {
                 positions.insert(parent_dir.to_path_buf(), parent_position);
             }

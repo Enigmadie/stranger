@@ -38,7 +38,7 @@ impl MillerColumns {
         let (child_dir_entry, child_dir_files) = if let Some(first_entry) =
             selected_dir_files.get(position_id)
         {
-            if matches!(first_entry.variant, FileVariant::Directory { .. }) {
+            if first_entry.variant.is_directory() {
                 let child_dir_entry = DirEntry {
                     dir_name: Some(current_dir.join(&first_entry.name)),
                     with_meta: true,
@@ -69,23 +69,27 @@ impl MillerColumns {
                 let mut entries: Vec<FileEntry> = std::fs::read_dir(dir)?
                     .filter_map(|entry| {
                         let e = entry.ok()?;
-                        let metadata = e.metadata().ok()?;
+                        let metadata = e.path().symlink_metadata().ok()?;
                         let permissions =
                             dir_entry.with_meta.then(|| get_file_permissions(&metadata));
                         let last_modified = dir_entry
                             .with_meta
                             .then(|| get_last_modified(&metadata).unwrap_or(String::from("")));
-                        let name = e.file_name().to_string_lossy().into_owned();
+                        let name = e.file_name();
+                        let display_name = name.to_string_lossy().into_owned();
 
-                        let is_matched = search_pattern
-                            .as_ref()
-                            .is_some_and(|pattern| name.to_lowercase().starts_with(pattern));
+                        let is_matched = search_pattern.as_ref().is_some_and(|pattern| {
+                            display_name.to_lowercase().starts_with(pattern)
+                        });
 
-                        if !show_hidden_files && name.starts_with('.') {
+                        if !show_hidden_files && display_name.starts_with('.') {
                             return None;
                         }
 
-                        let variant = if metadata.is_dir() {
+                        let file_type = metadata.file_type();
+                        let variant = if file_type.is_symlink() {
+                            FileVariant::Symlink { is_matched }
+                        } else if file_type.is_dir() {
                             let len = dir_entry.with_meta.then(|| count_dir_entries(e.path()));
                             FileVariant::Directory {
                                 len,
@@ -93,7 +97,7 @@ impl MillerColumns {
                                 last_modified,
                                 is_matched,
                             }
-                        } else {
+                        } else if file_type.is_file() {
                             let size = dir_entry.with_meta.then(|| calculate_file_size(metadata));
                             FileVariant::File {
                                 size,
@@ -101,20 +105,26 @@ impl MillerColumns {
                                 last_modified,
                                 is_matched,
                             }
+                        } else {
+                            FileVariant::Special { is_matched }
                         };
 
-                        Some(FileEntry { name, variant })
+                        Some(FileEntry {
+                            name,
+                            display_name,
+                            variant,
+                        })
                     })
                     .collect();
 
                 entries.sort_by(|a, b| {
-                    match (
-                        matches!(a.variant, FileVariant::Directory { .. }),
-                        matches!(b.variant, FileVariant::Directory { .. }),
-                    ) {
+                    match (a.variant.is_directory(), b.variant.is_directory()) {
                         (true, false) => std::cmp::Ordering::Less,
                         (false, true) => std::cmp::Ordering::Greater,
-                        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+                        _ => a
+                            .display_name
+                            .to_lowercase()
+                            .cmp(&b.display_name.to_lowercase()),
                     }
                 });
 
@@ -126,5 +136,57 @@ impl MillerColumns {
 
     pub fn check_is_current_dir_is_not_empty(files: &[FileEntry]) -> bool {
         !files.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn preserves_non_utf8_names_for_filesystem_operations() {
+        use std::{ffi::OsString, os::unix::ffi::OsStringExt};
+
+        let temp = tempdir().unwrap();
+        let name = OsString::from_vec(vec![b'n', 0xff]);
+        fs::write(temp.path().join(&name), "content").unwrap();
+
+        let columns = MillerColumns::build_columns(temp.path(), 0, None, true).unwrap();
+        let entry = columns.files[1]
+            .iter()
+            .find(|entry| entry.name == name)
+            .unwrap();
+
+        assert_eq!(entry.name, name);
+        assert!(entry.display_name.contains('\u{fffd}'));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn distinguishes_symlinks_and_special_files() {
+        use std::{ffi::CString, os::unix::ffi::OsStrExt};
+
+        let temp = tempdir().unwrap();
+        fs::write(temp.path().join("target"), "content").unwrap();
+        std::os::unix::fs::symlink("target", temp.path().join("link")).unwrap();
+        let fifo = temp.path().join("pipe");
+        let fifo_c = CString::new(fifo.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo_c.as_ptr(), 0o600) }, 0);
+
+        let columns = MillerColumns::build_columns(temp.path(), 0, None, true).unwrap();
+        let link = columns.files[1]
+            .iter()
+            .find(|entry| entry.name == "link")
+            .unwrap();
+        let pipe = columns.files[1]
+            .iter()
+            .find(|entry| entry.name == "pipe")
+            .unwrap();
+
+        assert!(matches!(link.variant, FileVariant::Symlink { .. }));
+        assert!(matches!(pipe.variant, FileVariant::Special { .. }));
     }
 }

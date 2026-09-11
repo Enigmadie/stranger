@@ -11,7 +11,7 @@ use crate::app::{
     config::constants::ui::{COLUMN_PERCENTAGE, FIRST_COLUMN_PERCENTAGE},
     model::{
         file::{build_full_path, get_current_file},
-        miller::{entries::FileVariant, positions::get_position},
+        miller::positions::get_position,
     },
     state::State,
     ui::{
@@ -107,13 +107,13 @@ impl Body {
                     let current_file =
                         get_current_file(&state.positions_map, &state.current_dir, &state.files[1]);
                     let is_current_column_and_selected_file =
-                        current_file.is_some_and(|e| matches!(e.variant, FileVariant::File { .. }));
+                        current_file.is_some_and(|e| e.variant.is_regular_file());
 
                     let preview = if is_current_column_and_selected_file {
                         let bytes_size = 2048;
                         if let Some(file) = current_file {
                             let filepath = build_full_path(&state.current_dir, file);
-                            highlight_file(filepath.to_str().unwrap_or(""), bytes_size)
+                            highlight_file(&filepath, bytes_size)
                                 .unwrap_or(vec![Line::from("Error reading file")])
                         } else {
                             vec![Line::from("Empty")]

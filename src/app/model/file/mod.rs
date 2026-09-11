@@ -8,10 +8,7 @@ use chrono::{DateTime, Local};
 use clap::Error;
 
 use crate::app::{
-    model::miller::{
-        entries::{FileEntry, FileVariant},
-        positions::get_position,
-    },
+    model::miller::{entries::FileEntry, positions::get_position},
     utils::permissions_to_string,
 };
 
@@ -54,13 +51,7 @@ pub fn count_dir_entries<P: AsRef<Path>>(path: P) -> u64 {
 }
 
 pub fn count_matched_files(files: &[FileEntry]) -> usize {
-    files
-        .iter()
-        .filter(|f| match f.variant {
-            FileVariant::Directory { is_matched, .. } => is_matched,
-            FileVariant::File { is_matched, .. } => is_matched,
-        })
-        .count()
+    files.iter().filter(|f| f.variant.is_matched()).count()
 }
 
 #[cfg(test)]
@@ -75,7 +66,8 @@ mod tests {
     fn full_path() {
         let dir = PathBuf::from("/src/ui/tests");
         let file = FileEntry {
-            name: "test".to_string(),
+            name: "test".into(),
+            display_name: "test".to_string(),
             variant: FileVariant::File {
                 size: Some(10),
                 permissions: None,
@@ -92,7 +84,8 @@ mod tests {
     fn current_file() {
         let dir = PathBuf::from("/src/ui/tests");
         let files = vec![FileEntry {
-            name: "test".to_string(),
+            name: "test".into(),
+            display_name: "test".to_string(),
             variant: FileVariant::File {
                 size: Some(10),
                 permissions: None,
@@ -106,7 +99,8 @@ mod tests {
 
         assert_eq!(
             Some(&FileEntry {
-                name: "test".to_string(),
+                name: "test".into(),
+                display_name: "test".to_string(),
                 variant: FileVariant::File {
                     size: Some(10),
                     permissions: None,

@@ -48,6 +48,7 @@ pub fn create_test_state() -> State<'static> {
             vec![
                 FileEntry {
                     name: "file1".into(),
+                    display_name: "file1".into(),
                     variant: FileVariant::File {
                         size: Some(10),
                         permissions: Some("rwxr-xr-x".into()),
@@ -57,6 +58,7 @@ pub fn create_test_state() -> State<'static> {
                 },
                 FileEntry {
                     name: "file2".into(),
+                    display_name: "file2".into(),
                     variant: FileVariant::File {
                         size: Some(10),
                         permissions: Some("rwxr-xr-x".into()),
@@ -66,6 +68,7 @@ pub fn create_test_state() -> State<'static> {
                 },
                 FileEntry {
                     name: "file3".into(),
+                    display_name: "file3".into(),
                     variant: FileVariant::File {
                         size: Some(10),
                         permissions: Some("rwxr-xr-x".into()),

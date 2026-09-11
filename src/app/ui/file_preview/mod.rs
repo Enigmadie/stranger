@@ -1,6 +1,7 @@
 use std::{
     fs::File,
     io::{self, Read},
+    path::Path,
 };
 
 use ratatui::{
@@ -13,15 +14,32 @@ use syntect::{
     parsing::SyntaxSet,
 };
 
-pub fn highlight_file(file_path: &str, max_bytes: usize) -> io::Result<Vec<Line<'static>>> {
-    if is_binary_file(file_path)? {
+pub fn highlight_file(file_path: &Path, max_bytes: usize) -> io::Result<Vec<Line<'static>>> {
+    if !file_path.symlink_metadata()?.file_type().is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Preview is only available for regular files",
+        ));
+    }
+
+    let mut file = File::open(file_path)?;
+    let mut bytes = Vec::new();
+    file.by_ref()
+        .take(max_bytes as u64)
+        .read_to_end(&mut bytes)?;
+    if bytes.contains(&0) {
         return Ok(vec![Line::from("Binary or unsupported file")]);
     }
-    let file = File::open(file_path)?;
-    let mut content = String::new();
-    file.take(max_bytes as u64).read_to_string(&mut content)?;
 
-    content = content.replace('\t', "        ");
+    let content = match std::str::from_utf8(&bytes) {
+        Ok(content) => content,
+        Err(error) if error.error_len().is_none() => {
+            std::str::from_utf8(&bytes[..error.valid_up_to()]).unwrap_or_default()
+        }
+        Err(_) => return Ok(vec![Line::from("Binary or unsupported file")]),
+    };
+
+    let content = content.replace('\t', "        ");
 
     let ps = SyntaxSet::load_defaults_newlines();
     let ts = ThemeSet::load_defaults();
@@ -57,11 +75,51 @@ pub fn highlight_file(file_path: &str, max_bytes: usize) -> io::Result<Vec<Line<
     Ok(lines)
 }
 
-fn is_binary_file(file_path: &str) -> io::Result<bool> {
-    let mut file = File::open(file_path)?;
-    let mut buffer = [0u8; 1024];
-    let bytes_read = file.read(&mut buffer)?;
-    Ok(buffer[..bytes_read]
-        .iter()
-        .any(|&b| b == 0 || !b.is_ascii()))
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn previews_utf8_cyrillic_text() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("note.md");
+        fs::write(&path, "Привет, мир\n").unwrap();
+
+        let lines = highlight_file(&path, 2048).unwrap();
+        let text = lines[0]
+            .spans
+            .iter()
+            .map(|span| span.content.as_ref())
+            .collect::<String>();
+
+        assert_eq!(text, "Привет, мир");
+    }
+
+    #[test]
+    fn reports_invalid_utf8_as_binary() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("binary");
+        fs::write(&path, [0xff, 0xfe]).unwrap();
+
+        let lines = highlight_file(&path, 2048).unwrap();
+
+        assert_eq!(lines[0].spans[0].content, "Binary or unsupported file");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_fifo_without_opening_it() {
+        use std::{ffi::CString, os::unix::ffi::OsStrExt};
+
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("pipe");
+        let path_c = CString::new(path.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(path_c.as_ptr(), 0o600) }, 0);
+
+        let error = highlight_file(&path, 2048).unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
 }
