@@ -12,7 +12,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Widget},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum UnderLineModalAction {
     Add,
     Edit,

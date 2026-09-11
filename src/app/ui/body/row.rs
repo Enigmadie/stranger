@@ -16,15 +16,19 @@ use crate::app::{
 
 pub struct Row {}
 
+pub struct RowContext {
+    pub is_current_column: bool,
+    pub position_id: usize,
+    pub col_width: usize,
+    pub is_marked: bool,
+}
+
 impl Row {
     pub fn build<'a>(
         row_layout: Rc<[Rect]>,
         row_id: usize,
         file: &'a FileEntry,
-        is_current_column: bool,
-        position_id: usize,
-        col_width: usize,
-        marked: &'a [FileEntry],
+        context: RowContext,
         mode: &'a Mode,
     ) -> ListItem<'a> {
         let meta = match file.variant {
@@ -34,12 +38,11 @@ impl Row {
         let meta_width = row_layout[2].width as usize;
         let name = file.name.as_str();
 
-        let is_selected_column = row_id == position_id;
-        let is_marked = is_current_column && marked.iter().any(|f| f.name == file.name);
+        let is_selected_row = row_id == context.position_id;
 
         let mut style = match file.variant {
             FileVariant::Directory { is_matched, .. } => {
-                if is_selected_column {
+                if is_selected_row {
                     Style::default()
                         .bg(Color::Blue)
                         .fg(Color::Rgb(0, 0, 0))
@@ -51,7 +54,7 @@ impl Row {
                 }
             }
             FileVariant::File { is_matched, .. } => {
-                if is_selected_column {
+                if is_selected_row {
                     Style::default()
                         .bg(Color::White)
                         .fg(Color::Rgb(0, 0, 0))
@@ -64,9 +67,11 @@ impl Row {
             }
         };
 
-        if (matches!(mode, Mode::Visual { .. }) || is_marked) && is_selected_column {
+        if (matches!(mode, Mode::Visual { .. }) && context.is_current_column || context.is_marked)
+            && is_selected_row
+        {
             style = style.bg(Color::Yellow).fg(Color::Rgb(0, 0, 0));
-        } else if is_marked {
+        } else if context.is_marked {
             style = style.fg(Color::Yellow);
         }
 
@@ -77,7 +82,7 @@ impl Row {
             format!("{}{}", " ".repeat(pad), meta)
         };
 
-        let mut buffer = Buffer::empty(Rect::new(0, 0, col_width as u16, 1));
+        let mut buffer = Buffer::empty(Rect::new(0, 0, context.col_width as u16, 1));
         for cell in buffer.content.iter_mut() {
             cell.set_symbol(" ");
             cell.set_style(style);

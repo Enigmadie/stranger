@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 use std::io::{self};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use tui_textarea::TextArea;
 
@@ -49,7 +49,7 @@ pub struct State<'a> {
     pub from_external_app: bool,
     pub clipboard: Option<Clipboard>,
     pub notification: Option<Notification>,
-    pub marked: Vec<FileEntry>,
+    pub marked: Vec<PathBuf>,
     pub search_pattern: Option<String>,
     pub show_hidden_files: bool,
 }
@@ -80,21 +80,31 @@ impl<'a> State<'a> {
         })
     }
 
-    fn refresh_state(&mut self, new_pos_id: usize) -> io::Result<()> {
-        self.hide_hint_bar();
+    fn refresh_state(&mut self, target_dir: &Path, new_pos_id: usize) -> io::Result<()> {
         let miller_columns = MillerColumns::build_columns(
-            &self.current_dir,
+            target_dir,
             new_pos_id,
             self.search_pattern.clone(),
             self.show_hidden_files,
         )?;
+
+        self.hide_hint_bar();
+        self.current_dir = target_dir.to_path_buf();
         self.files = miller_columns.files;
         self.dirs = miller_columns.dirs;
         Ok(())
     }
 
     pub fn reset_state(&mut self, new_pos_id: usize) -> io::Result<()> {
-        self.refresh_state(new_pos_id)?;
+        self.reset_state_to(self.current_dir.clone(), new_pos_id)
+    }
+
+    pub(crate) fn reset_state_to(
+        &mut self,
+        target_dir: PathBuf,
+        new_pos_id: usize,
+    ) -> io::Result<()> {
+        self.refresh_state(&target_dir, new_pos_id)?;
         match self.mode {
             Mode::Insert => {
                 self.notification = Notification::Info {
@@ -122,7 +132,8 @@ impl<'a> State<'a> {
     }
 
     pub fn reset_state_except_notifications(&mut self, new_pos_id: usize) -> io::Result<()> {
-        self.refresh_state(new_pos_id)?;
+        let current_dir = self.current_dir.clone();
+        self.refresh_state(&current_dir, new_pos_id)?;
         Ok(())
     }
 

@@ -23,7 +23,7 @@ use crate::app::{
 pub mod bookmarks;
 pub mod components;
 pub mod row;
-pub use row::Row;
+pub use row::{Row, RowContext};
 
 pub struct Body;
 
@@ -135,14 +135,20 @@ impl Body {
                         .take(visible_height)
                         .enumerate()
                         .map(|(row_id, file)| {
+                            let is_marked = is_current_column
+                                && state
+                                    .marked
+                                    .contains(&build_full_path(&state.current_dir, file));
                             Row::build(
                                 Rc::clone(&row_layout),
                                 row_id + offset,
                                 file,
-                                is_current_column,
-                                cursor,
-                                col_width,
-                                &state.marked,
+                                RowContext {
+                                    is_current_column,
+                                    position_id: cursor,
+                                    col_width,
+                                    is_marked,
+                                },
                                 &state.mode,
                             )
                         })

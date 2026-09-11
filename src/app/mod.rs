@@ -20,7 +20,7 @@ use crate::app::state::{Bookmarks, FileManager, HintBar, Mark, Mode, Navigation,
 
 use crate::app::ui::modal::hint_bar::HintBarMode;
 use crate::app::ui::modal::ModalKind;
-use crate::app::utils::config_parser::load_config;
+use crate::app::utils::config_parser::default_config::Config;
 
 use self::state::State;
 
@@ -32,9 +32,7 @@ pub struct App<'a> {
 }
 
 impl<'a> App<'a> {
-    pub fn new() -> io::Result<Self> {
-        let config = load_config();
-
+    pub fn new(config: Config) -> io::Result<Self> {
         Ok(App {
             state: State::new(config)?,
             exit: false,
@@ -302,16 +300,14 @@ impl<'a> App<'a> {
     }
 }
 
-impl Drop for App<'_> {
-    fn drop(&mut self) {
-        if let Err(e) = cleanup_terminal() {
-            eprintln!("Failed to cleanup terminal: {}", e);
-        }
-    }
-}
-
 pub fn cleanup_terminal() -> io::Result<()> {
-    disable_raw_mode().map_err(io::Error::other)?;
-    execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture, Show)?;
-    Ok(())
+    let raw_result = disable_raw_mode().map_err(io::Error::other);
+    let screen_result = execute!(stdout(), LeaveAlternateScreen);
+    let mouse_result = execute!(stdout(), DisableMouseCapture);
+    let cursor_result = execute!(stdout(), Show);
+
+    raw_result
+        .and(screen_result)
+        .and(mouse_result)
+        .and(cursor_result)
 }

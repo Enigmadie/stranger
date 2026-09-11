@@ -1,9 +1,13 @@
 use fs_extra::dir::{self, CopyOptions};
 use std::{
+    fs::{File, OpenOptions},
     io::{self, stdout},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     process::{Command, Stdio},
 };
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+use std::ffi::CString;
 
 use crossterm::{
     cursor::Show,
@@ -17,43 +21,95 @@ use crate::app::{
     utils::{i18n::Lang, uniquify_path},
 };
 
-pub fn rename_file(full_path: &PathBuf, new_name: String) -> io::Result<()> {
-    let parent_dir = full_path
-        .parent()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid file path"))?;
-
-    let new_path = parent_dir.join(&new_name);
-    std::fs::rename(full_path, new_path)
+fn validate_file_name(name: &str) -> io::Result<&std::ffi::OsStr> {
+    let mut components = Path::new(name).components();
+    match (components.next(), components.next()) {
+        (Some(Component::Normal(name)), None) => Ok(name),
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "A single file name is required",
+        )),
+    }
 }
 
-pub fn create_file(file_name: String, file_path: &PathBuf) -> io::Result<()> {
-    let full_path = PathBuf::from(file_path).join(file_name);
+#[cfg(target_os = "macos")]
+fn rename_no_replace(source: &Path, destination: &Path) -> io::Result<()> {
+    use std::os::unix::ffi::OsStrExt;
 
+    let source = CString::new(source.as_os_str().as_bytes())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    let destination = CString::new(destination.as_os_str().as_bytes())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    // SAFETY: both pointers come from live CStrings and are valid for this call.
+    let result =
+        unsafe { libc::renamex_np(source.as_ptr(), destination.as_ptr(), libc::RENAME_EXCL) };
+    if result == 0 {
+        Ok(())
+    } else {
+        Err(io::Error::last_os_error())
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn rename_no_replace(source: &Path, destination: &Path) -> io::Result<()> {
+    use std::os::unix::ffi::OsStrExt;
+
+    let source = CString::new(source.as_os_str().as_bytes())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    let destination = CString::new(destination.as_os_str().as_bytes())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    // SAFETY: both pointers come from live CStrings and are valid for this call.
+    let result = unsafe {
+        libc::renameat2(
+            libc::AT_FDCWD,
+            source.as_ptr(),
+            libc::AT_FDCWD,
+            destination.as_ptr(),
+            libc::RENAME_NOREPLACE,
+        )
+    };
+    if result == 0 {
+        Ok(())
+    } else {
+        Err(io::Error::last_os_error())
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn rename_no_replace(source: &Path, destination: &Path) -> io::Result<()> {
+    if destination.try_exists()? {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("Destination already exists: {}", destination.display()),
+        ));
+    }
+    std::fs::rename(source, destination)
+}
+
+pub fn rename_file(full_path: &Path, new_name: String) -> io::Result<()> {
     let parent_dir = full_path
         .parent()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid file path"))?;
 
-    if !parent_dir.exists() {
-        std::fs::create_dir_all(parent_dir)?;
+    let new_path = parent_dir.join(validate_file_name(&new_name)?);
+    if new_path == full_path {
+        return Ok(());
     }
+    rename_no_replace(full_path, &new_path)
+}
 
-    std::fs::File::create(&full_path)?;
+pub fn create_file(file_name: String, file_path: &Path) -> io::Result<()> {
+    let full_path = file_path.join(validate_file_name(&file_name)?);
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(full_path)?;
     Ok(())
 }
 
-pub fn create_dir(dir_name: String, file_path: &PathBuf) -> io::Result<()> {
-    let full_path = PathBuf::from(file_path).join(dir_name);
-
-    let parent_dir = full_path
-        .parent()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid file path"))?;
-
-    if !parent_dir.exists() {
-        std::fs::create_dir_all(parent_dir)?;
-    }
-
-    std::fs::create_dir_all(&full_path)?;
-    Ok(())
+pub fn create_dir(dir_name: String, file_path: &Path) -> io::Result<()> {
+    let full_path = file_path.join(validate_file_name(&dir_name)?);
+    std::fs::create_dir(full_path)
 }
 
 pub fn copy_file_path(file_path: PathBuf) -> Result<PathBuf, io::Error> {
@@ -68,12 +124,58 @@ pub fn copy_file_path(file_path: PathBuf) -> Result<PathBuf, io::Error> {
     }
 }
 
-pub fn paste_file(src_path: &PathBuf, dest_path: &Path) -> io::Result<()> {
-    if !dest_path.exists() {
+fn reserve_unique_file(path: &Path) -> io::Result<(PathBuf, File)> {
+    loop {
+        let destination = uniquify_path(path);
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&destination)
+        {
+            Ok(file) => return Ok((destination, file)),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+fn reserve_unique_directory(path: &Path) -> io::Result<PathBuf> {
+    loop {
+        let destination = uniquify_path(path);
+        match std::fs::create_dir(&destination) {
+            Ok(()) => return Ok(destination),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+pub fn paste_file(src_path: &Path, dest_path: &Path) -> io::Result<()> {
+    if !src_path.exists() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
             format!("Source path does not exist: {}", src_path.display()),
         ));
+    }
+    if !dest_path.is_dir() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!(
+                "Destination directory does not exist: {}",
+                dest_path.display()
+            ),
+        ));
+    }
+
+    if src_path.is_dir() {
+        let source = src_path.canonicalize()?;
+        let destination = dest_path.canonicalize()?;
+        if destination == source || destination.starts_with(&source) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Cannot copy a directory into itself",
+            ));
+        }
     }
 
     let dest_dir = dest_path.join(
@@ -82,13 +184,27 @@ pub fn paste_file(src_path: &PathBuf, dest_path: &Path) -> io::Result<()> {
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid path name"))?,
     );
 
-    let uniq_dest = uniquify_path(&dest_dir);
-
     if src_path.is_file() {
-        std::fs::copy(src_path, uniq_dest)?;
+        let mut source = File::open(src_path)?;
+        let permissions = source.metadata()?.permissions();
+        let (destination_path, mut destination) = reserve_unique_file(&dest_dir)?;
+        if let Err(error) = io::copy(&mut source, &mut destination)
+            .and_then(|_| std::fs::set_permissions(&destination_path, permissions))
+        {
+            drop(destination);
+            let _ = std::fs::remove_file(destination_path);
+            return Err(error);
+        }
     } else if src_path.is_dir() {
-        let options = CopyOptions::new().overwrite(true).copy_inside(true);
-        let _ = dir::copy(src_path, uniq_dest, &options);
+        let destination = reserve_unique_directory(&dest_dir)?;
+        let options = CopyOptions::new()
+            .overwrite(false)
+            .copy_inside(true)
+            .content_only(true);
+        if let Err(error) = dir::copy(src_path, &destination, &options) {
+            let _ = std::fs::remove_dir_all(destination);
+            return Err(io::Error::other(error.to_string()));
+        }
     } else {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -98,7 +214,7 @@ pub fn paste_file(src_path: &PathBuf, dest_path: &Path) -> io::Result<()> {
     Ok(())
 }
 
-pub fn remove_file(path: &PathBuf) -> io::Result<()> {
+pub fn remove_file(path: &Path) -> io::Result<()> {
     if !path.exists() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
@@ -119,7 +235,7 @@ pub fn remove_file(path: &PathBuf) -> io::Result<()> {
     Ok(())
 }
 
-pub fn remove_file_to_trash(path: &PathBuf) -> io::Result<()> {
+pub fn remove_file_to_trash(path: &Path) -> io::Result<()> {
     if !path.exists() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
@@ -127,10 +243,7 @@ pub fn remove_file_to_trash(path: &PathBuf) -> io::Result<()> {
         ));
     }
 
-    match trash::delete(path) {
-        Ok(()) => Ok(()),
-        Err(_) => remove_file(path),
-    }
+    trash::delete(path).map_err(|error| io::Error::other(error.to_string()))
 }
 
 pub fn whoami_info() -> io::Result<String> {
@@ -186,4 +299,107 @@ pub fn exec_shell_in(dir: &PathBuf) -> io::Result<()> {
         .exec();
 
     Err(err)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn create_file_does_not_truncate_existing_file() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("note.md");
+        fs::write(&path, "keep me").unwrap();
+
+        let error = create_file("note.md".into(), temp.path()).unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(path).unwrap(), "keep me");
+    }
+
+    #[test]
+    fn rename_does_not_replace_existing_file() {
+        let temp = tempdir().unwrap();
+        let source = temp.path().join("source.md");
+        let destination = temp.path().join("destination.md");
+        fs::write(&source, "source").unwrap();
+        fs::write(&destination, "destination").unwrap();
+
+        let error = rename_file(&source, "destination.md".into()).unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(source).unwrap(), "source");
+        assert_eq!(fs::read_to_string(destination).unwrap(), "destination");
+    }
+
+    #[test]
+    fn names_cannot_escape_the_current_directory() {
+        let temp = tempdir().unwrap();
+
+        assert_eq!(
+            create_file("../outside".into(), temp.path())
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::InvalidInput
+        );
+        assert_eq!(
+            create_dir("nested/directory".into(), temp.path())
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::InvalidInput
+        );
+    }
+
+    #[test]
+    fn directory_cannot_be_copied_into_itself_or_descendant() {
+        let temp = tempdir().unwrap();
+        let source = temp.path().join("source");
+        let descendant = source.join("nested");
+        fs::create_dir_all(&descendant).unwrap();
+
+        assert_eq!(
+            paste_file(&source, &source).unwrap_err().kind(),
+            io::ErrorKind::InvalidInput
+        );
+        assert_eq!(
+            paste_file(&source, &descendant).unwrap_err().kind(),
+            io::ErrorKind::InvalidInput
+        );
+    }
+
+    #[test]
+    fn paste_preserves_colliding_file_and_directory() {
+        let temp = tempdir().unwrap();
+        let source_root = temp.path().join("source");
+        let destination = temp.path().join("destination");
+        fs::create_dir_all(source_root.join("folder")).unwrap();
+        fs::create_dir(&destination).unwrap();
+        fs::write(source_root.join("note.md"), "new").unwrap();
+        fs::write(source_root.join("folder/nested.md"), "nested").unwrap();
+        fs::write(destination.join("note.md"), "existing").unwrap();
+        fs::create_dir(destination.join("folder")).unwrap();
+        fs::write(destination.join("folder/existing.md"), "existing").unwrap();
+
+        paste_file(&source_root.join("note.md"), &destination).unwrap();
+        paste_file(&source_root.join("folder"), &destination).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(destination.join("note.md")).unwrap(),
+            "existing"
+        );
+        assert_eq!(
+            fs::read_to_string(destination.join("note_.md")).unwrap(),
+            "new"
+        );
+        assert_eq!(
+            fs::read_to_string(destination.join("folder/existing.md")).unwrap(),
+            "existing"
+        );
+        assert_eq!(
+            fs::read_to_string(destination.join("folder_/nested.md")).unwrap(),
+            "nested"
+        );
+    }
 }

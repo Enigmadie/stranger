@@ -2,11 +2,38 @@ use std::{collections::HashMap, path::PathBuf};
 use tui_textarea::TextArea;
 
 use crate::app::{
-    model::miller::entries::{DirEntry, FileEntry, FileVariant},
+    model::miller::{
+        columns::MillerColumns,
+        entries::{DirEntry, FileEntry, FileVariant},
+        positions::parse_path_positions,
+    },
     state::{Mode, State},
     ui::modal::ModalKind,
     utils::config_parser::default_config::Config,
 };
+
+pub fn create_test_state_at(path: &std::path::Path) -> std::io::Result<State<'static>> {
+    let current_dir = path.to_path_buf();
+    let columns = MillerColumns::build_columns(&current_dir, 0, None, false)?;
+    let positions_map = parse_path_positions(&current_dir, &columns.files);
+
+    Ok(State {
+        current_dir,
+        files: columns.files,
+        dirs: columns.dirs,
+        mode: Mode::Normal,
+        modal_type: ModalKind::Disabled,
+        positions_map,
+        input: TextArea::default(),
+        config: Config::default(),
+        from_external_app: false,
+        clipboard: None,
+        notification: None,
+        marked: vec![],
+        search_pattern: None,
+        show_hidden_files: false,
+    })
+}
 
 pub fn create_test_state() -> State<'static> {
     let mut positions_map: HashMap<PathBuf, usize> = HashMap::new();

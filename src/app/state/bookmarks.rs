@@ -16,7 +16,7 @@ pub trait Bookmarks {
     fn bookmarks_nagivate_up(&mut self) -> io::Result<()>;
     fn enter_bookmarks_mode(&mut self);
     fn add_to_bookmarks(&mut self);
-    fn commit_new_bookmark(&mut self, alias: String);
+    fn commit_new_bookmark(&mut self, alias: String) -> io::Result<()>;
     fn delete_from_bookmarks(&mut self);
     fn open_dir_from_bookmark(&mut self) -> io::Result<()>;
 }
@@ -63,19 +63,25 @@ impl<'a> Bookmarks for State<'a> {
         };
     }
 
-    fn commit_new_bookmark(&mut self, alias: String) {
+    fn commit_new_bookmark(&mut self, alias: String) -> io::Result<()> {
         if let Some(current_file) =
             get_current_file(&self.positions_map, &self.current_dir, &self.files[1])
         {
             let full_path = build_full_path(&self.current_dir, current_file);
-            self.config.bookmarks.insert(alias, full_path);
+            let mut config = self.config.clone();
+            config.bookmarks.insert(alias, full_path);
+            save_config(&config)?;
+            self.config = config;
 
-            let _ = save_config(&self.config);
-
-            self.notification = Notification::Info {
+            self.notification = Some(Notification::Info {
                 msg: Lang::en("bookmark_added").into(),
-            }
-            .into()
+            });
+            Ok(())
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                Lang::en("items_not_found"),
+            ))
         }
     }
 
@@ -94,11 +100,11 @@ impl<'a> Bookmarks for State<'a> {
     fn open_dir_from_bookmark(&mut self) -> io::Result<()> {
         if let Mode::Bookmarks { position_id } = self.mode {
             if let Some((_, value)) = self.config.bookmarks.get_index(position_id) {
-                let millers_id = get_position(&self.positions_map, &self.current_dir);
                 match () {
                     _ if value.is_dir() => {
-                        self.current_dir = value.clone();
-                        let _ = self.reset_state(millers_id);
+                        let target_dir = value.clone();
+                        let millers_id = get_position(&self.positions_map, &target_dir);
+                        self.reset_state_to(target_dir, millers_id)?;
                         self.mode = Mode::Normal;
                     }
                     _ if value.is_file() => {

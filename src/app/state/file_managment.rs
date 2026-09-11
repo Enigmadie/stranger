@@ -35,6 +35,46 @@ pub trait FileManager {
     fn toggle_hidden_files(&mut self);
 }
 
+fn selected_paths(state: &State<'_>) -> Option<Vec<PathBuf>> {
+    if !state.marked.is_empty() {
+        return Some(state.marked.clone());
+    }
+
+    get_current_file(&state.positions_map, &state.current_dir, &state.files[1])
+        .map(|file| vec![build_full_path(&state.current_dir, file)])
+}
+
+fn deletion_paths(paths: Vec<PathBuf>, current_dir: &std::path::Path) -> io::Result<Vec<PathBuf>> {
+    let current_dir = current_dir.canonicalize()?;
+    let mut paths = paths
+        .into_iter()
+        .map(|path| {
+            let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+            (path, canonical)
+        })
+        .collect::<Vec<_>>();
+    paths.sort_by_key(|(_, canonical)| canonical.components().count());
+    paths.dedup_by(|(_, left), (_, right)| left == right);
+
+    if paths
+        .iter()
+        .any(|(_, path)| current_dir == *path || current_dir.starts_with(path))
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Cannot delete the current directory or one of its parents",
+        ));
+    }
+
+    let mut roots: Vec<(PathBuf, PathBuf)> = Vec::new();
+    for (path, canonical) in paths {
+        if !roots.iter().any(|(_, root)| canonical.starts_with(root)) {
+            roots.push((path, canonical));
+        }
+    }
+    Ok(roots.into_iter().map(|(path, _)| path).collect())
+}
+
 impl<'a> FileManager for State<'a> {
     fn add_file(&mut self) {
         self.enter_insert_mode();
@@ -55,38 +95,48 @@ impl<'a> FileManager for State<'a> {
 
     fn commit_changes(&mut self) {
         let input_value = self.input.lines().join("");
-        if let ModalKind::UnderLine { action } = &self.modal_type {
-            match action {
-                UnderLineModalAction::Add => {
-                    let is_dir = self.input.lines().last().is_some_and(|e| e.ends_with('/'));
-
-                    if is_dir {
-                        let _ = create_dir(input_value, &self.current_dir);
-                    } else {
-                        let _ = create_file(input_value, &self.current_dir);
-                    }
-                    let _ = self.reset_state_except_notifications(0);
-                }
-                UnderLineModalAction::Edit => {
-                    let current_file =
-                        get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
-                    if let Some(file) = current_file {
+        let action = match &self.modal_type {
+            ModalKind::UnderLine { action } => *action,
+            _ => return,
+        };
+        let result = match action {
+            UnderLineModalAction::Add => {
+                let is_dir = self
+                    .input
+                    .lines()
+                    .last()
+                    .is_some_and(|line| line.ends_with('/'));
+                let result = if is_dir {
+                    create_dir(input_value, &self.current_dir)
+                } else {
+                    create_file(input_value, &self.current_dir)
+                };
+                result.and_then(|()| self.reset_state_except_notifications(0))
+            }
+            UnderLineModalAction::Edit => {
+                let current_file =
+                    get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
+                match current_file {
+                    Some(file) => {
                         let full_path = build_full_path(&self.current_dir, file);
-                        let _ = rename_file(&full_path, input_value);
-                        let positiond_id = get_position(&self.positions_map, &self.current_dir);
-                        let _ = self.reset_state_except_notifications(positiond_id);
-                    } else {
-                        self.notification = Some(Notification::Error {
-                            msg: format!("Failed to update file: {}", self.current_dir.display())
-                                .into(),
-                        });
+                        let position_id = get_position(&self.positions_map, &self.current_dir);
+                        rename_file(&full_path, input_value)
+                            .and_then(|()| self.reset_state_except_notifications(position_id))
                     }
-                }
-                UnderLineModalAction::Bookmarks => {
-                    let input_value = self.input.lines().join("");
-                    self.commit_new_bookmark(input_value);
+                    None => Err(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!("Failed to update file: {}", self.current_dir.display()),
+                    )),
                 }
             }
+            UnderLineModalAction::Bookmarks => self.commit_new_bookmark(input_value),
+        };
+
+        if let Err(error) = result {
+            self.notification = Some(Notification::Error {
+                msg: error.to_string().into(),
+            });
+            return;
         }
 
         self.enter_normal_mode();
@@ -94,22 +144,17 @@ impl<'a> FileManager for State<'a> {
     }
 
     fn copy_files(&mut self, action: ClipboardAction) {
-        let files_to_copy = if !self.marked.is_empty() {
-            self.marked.clone()
-        } else {
-            vec![
-                get_current_file(&self.positions_map, &self.current_dir, &self.files[1])
-                    .unwrap()
-                    .clone(),
-            ]
+        let Some(files_to_copy) = selected_paths(self) else {
+            self.notification = Some(Notification::Warn {
+                msg: Lang::en("items_not_found").into(),
+            });
+            if self.modal_type.is_hint_bar() {
+                self.hide_hint_bar();
+            }
+            return;
         };
-        let copied_filepaths: Result<Vec<PathBuf>, _> = files_to_copy
-            .iter()
-            .map(|file| {
-                let file_path = build_full_path(&self.current_dir, file);
-                copy_file_path(file_path)
-            })
-            .collect();
+        let copied_filepaths: Result<Vec<PathBuf>, _> =
+            files_to_copy.into_iter().map(copy_file_path).collect();
 
         match copied_filepaths {
             Ok(value) => {
@@ -136,20 +181,31 @@ impl<'a> FileManager for State<'a> {
     }
 
     fn delete_files(&mut self, mode: DeleteMode) {
-        let files_to_delete = if !self.marked.is_empty() {
-            self.marked.clone()
-        } else {
-            vec![
-                get_current_file(&self.positions_map, &self.current_dir, &self.files[1])
-                    .unwrap()
-                    .clone(),
-            ]
+        let Some(files_to_delete) = selected_paths(self) else {
+            self.notification = Some(Notification::Warn {
+                msg: Lang::en("items_not_deleted").into(),
+            });
+            if self.modal_type.is_hint_bar() {
+                self.hide_hint_bar();
+            }
+            return;
+        };
+        let files_to_delete = match deletion_paths(files_to_delete, &self.current_dir) {
+            Ok(paths) => paths,
+            Err(error) => {
+                self.notification = Some(Notification::Error {
+                    msg: error.to_string().into(),
+                });
+                if self.modal_type.is_hint_bar() {
+                    self.hide_hint_bar();
+                }
+                return;
+            }
         };
         let mut successful_deletions = 0;
         let mut errors = Vec::new();
 
-        for file in files_to_delete {
-            let filepath = build_full_path(&self.current_dir, &file);
+        for filepath in files_to_delete {
             match mode {
                 DeleteMode::Trash => match remove_file_to_trash(&filepath) {
                     Ok(()) => successful_deletions += 1,
@@ -188,27 +244,24 @@ impl<'a> FileManager for State<'a> {
     }
 
     fn paste_files(&mut self) -> io::Result<()> {
-        match &self.clipboard {
+        match self.clipboard.as_ref() {
             Some(Clipboard::File { items, action }) => {
-                let mut copied_files = Vec::new();
+                let items = items.clone();
+                let action = *action;
+                let mut completed_files = 0;
+                let mut retry_items = Vec::new();
                 let mut errors = Vec::new();
 
                 for file in items {
-                    match paste_file(file, &self.current_dir) {
-                        Ok(_) => {
-                            copied_files.push(file.clone());
-                        }
+                    match paste_file(&file, &self.current_dir) {
+                        Ok(()) if action == ClipboardAction::Cut => match remove_file(&file) {
+                            Ok(()) => completed_files += 1,
+                            Err(error) => errors.push(error),
+                        },
+                        Ok(()) => completed_files += 1,
                         Err(err) => {
                             errors.push(err);
-                            continue;
-                        }
-                    }
-                }
-
-                if let ClipboardAction::Cut = action {
-                    for file in &copied_files {
-                        if let Err(err) = remove_file(file) {
-                            errors.push(err);
+                            retry_items.push(file);
                         }
                     }
                 }
@@ -223,7 +276,7 @@ impl<'a> FileManager for State<'a> {
                         msg: Lang::en_fmt(
                             lang_key_with_err,
                             &[
-                                &copied_files.len().to_string(),
+                                &completed_files.to_string(),
                                 &errors.len().to_string(),
                                 &errors
                                     .iter()
@@ -242,13 +295,16 @@ impl<'a> FileManager for State<'a> {
                         ClipboardAction::Delete => "deleted",
                     };
                     self.notification = Notification::Success {
-                        msg: Lang::en_fmt(lang_key, &[&copied_files.len().to_string()]).into(),
+                        msg: Lang::en_fmt(lang_key, &[&completed_files.to_string()]).into(),
                     }
                     .into();
                 }
                 let position_id = get_position(&self.positions_map, &self.current_dir);
                 let _ = self.reset_state_except_notifications(position_id);
-                self.clipboard = None;
+                self.clipboard = (!retry_items.is_empty()).then_some(Clipboard::File {
+                    items: retry_items,
+                    action,
+                });
                 self.clear_marks();
                 Ok(())
             }
@@ -275,5 +331,108 @@ impl<'a> FileManager for State<'a> {
         self.show_hidden_files = !self.show_hidden_files;
         let position_id = get_position(&self.positions_map, &self.current_dir);
         let _ = self.reset_state_except_notifications(position_id);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::test_utils::{create_test_state, create_test_state_at};
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn copy_in_empty_directory_does_not_panic_or_fill_clipboard() {
+        let mut state = create_test_state();
+        state.files[1].clear();
+
+        state.copy_files(ClipboardAction::Copy);
+
+        assert!(state.clipboard.is_none());
+        assert!(matches!(
+            state.notification,
+            Some(Notification::Warn { .. })
+        ));
+    }
+
+    #[test]
+    fn delete_in_empty_directory_does_not_panic() {
+        let mut state = create_test_state();
+        state.files[1].clear();
+
+        state.delete_files(DeleteMode::Permanent);
+
+        assert!(matches!(
+            state.notification,
+            Some(Notification::Warn { .. })
+        ));
+    }
+
+    #[test]
+    fn deletion_rejects_the_current_directory_and_its_parents() {
+        let temp = tempdir().unwrap();
+        let current = temp.path().join("parent/child");
+        fs::create_dir_all(&current).unwrap();
+
+        assert!(deletion_paths(vec![current.clone()], &current).is_err());
+        assert!(deletion_paths(vec![temp.path().join("parent")], &current).is_err());
+        assert!(current.exists());
+    }
+
+    #[test]
+    fn deletion_collapses_nested_paths_to_their_selected_root() {
+        let temp = tempdir().unwrap();
+        let current = temp.path().join("current");
+        let parent = temp.path().join("selected");
+        let child = parent.join("child");
+        fs::create_dir_all(&current).unwrap();
+        fs::create_dir_all(&child).unwrap();
+
+        let paths = deletion_paths(vec![child, parent.clone()], &current).unwrap();
+
+        assert_eq!(paths, vec![parent]);
+    }
+
+    #[test]
+    fn partial_paste_keeps_failed_items_in_clipboard() {
+        let temp = tempdir().unwrap();
+        let destination = temp.path().join("destination");
+        let source = temp.path().join("source.md");
+        let missing = temp.path().join("missing.md");
+        fs::create_dir(&destination).unwrap();
+        fs::write(&source, "source").unwrap();
+        let mut state = create_test_state_at(&destination).unwrap();
+        state.clipboard = Some(Clipboard::File {
+            items: vec![source, missing.clone()],
+            action: ClipboardAction::Copy,
+        });
+
+        state.paste_files().unwrap();
+
+        assert!(destination.join("source.md").exists());
+        assert!(matches!(
+            state.clipboard,
+            Some(Clipboard::File { ref items, .. }) if items == &[missing]
+        ));
+    }
+
+    #[test]
+    fn stale_mark_does_not_block_deleting_existing_marks() {
+        let temp = tempdir().unwrap();
+        let current = temp.path().join("current");
+        let existing = temp.path().join("existing.md");
+        let missing = temp.path().join("missing.md");
+        fs::create_dir(&current).unwrap();
+        fs::write(&existing, "existing").unwrap();
+        let mut state = create_test_state_at(&current).unwrap();
+        state.marked = vec![missing, existing.clone()];
+
+        state.delete_files(DeleteMode::Permanent);
+
+        assert!(!existing.exists());
+        assert!(matches!(
+            state.notification,
+            Some(Notification::Error { .. })
+        ));
     }
 }

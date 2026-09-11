@@ -60,8 +60,10 @@ impl<'a> Search for State<'a> {
             }
 
             if let Some(new_position) = found_index {
+                if self.reset_state(new_position).is_err() {
+                    return;
+                }
                 update_dir_position(&mut self.positions_map, &self.current_dir, new_position);
-                let _ = self.reset_state(new_position);
             } else {
                 self.notification = Some(crate::app::state::Notification::Info {
                     msg: Lang::en_fmt("no_matches", &[pattern]).into(),
