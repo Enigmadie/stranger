@@ -30,7 +30,7 @@ impl<'a> Bookmarks for State<'a> {
                 self.mode = Mode::Bookmarks {
                     position_id: new_position_id,
                 };
-                let _ = self.reset_state(0);
+                self.reset_state(0)?;
             }
         }
         Ok(())
@@ -42,7 +42,7 @@ impl<'a> Bookmarks for State<'a> {
             self.mode = Mode::Bookmarks {
                 position_id: new_position_id,
             };
-            let _ = self.reset_state(0);
+            self.reset_state(0)?;
         }
         Ok(())
     }
@@ -87,13 +87,23 @@ impl<'a> Bookmarks for State<'a> {
 
     fn delete_from_bookmarks(&mut self) {
         if let Mode::Bookmarks { position_id } = self.mode {
-            self.config.bookmarks.swap_remove_index(position_id);
-            let _ = save_config(&self.config);
-
-            self.notification = Notification::Info {
-                msg: Lang::en("bookmark_deleted").into(),
+            let mut config = self.config.clone();
+            config.bookmarks.swap_remove_index(position_id);
+            match save_config(&config) {
+                Ok(()) => {
+                    self.config = config;
+                    self.notification = Notification::Info {
+                        msg: Lang::en("bookmark_deleted").into(),
+                    }
+                    .into();
+                }
+                Err(error) => {
+                    self.notification = Notification::Error {
+                        msg: error.to_string().into(),
+                    }
+                    .into();
+                }
             }
-            .into()
         }
     }
 

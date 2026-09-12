@@ -15,6 +15,7 @@ pub mod ui;
 pub mod utils;
 
 use crate::app::model::clipboard::ClipboardAction;
+use crate::app::model::notification::Notification;
 use crate::app::state::file_managment::DeleteMode;
 use crate::app::state::{Bookmarks, FileManager, HintBar, Mark, Mode, Navigation, Search};
 
@@ -93,11 +94,13 @@ impl<'a> App<'a> {
                                     self.needs_redraw = true;
                                 }
                                 KeyCode::Char('D') => {
-                                    self.state.delete_files(DeleteMode::Trash);
+                                    let result = self.state.delete_files(DeleteMode::Trash);
+                                    self.report_error(result);
                                     self.needs_redraw = true;
                                 }
                                 KeyCode::Char('x') => {
-                                    self.state.delete_files(DeleteMode::Permanent);
+                                    let result = self.state.delete_files(DeleteMode::Permanent);
+                                    self.report_error(result);
                                     self.needs_redraw = true;
                                 }
                                 KeyCode::Char('q') => {
@@ -131,23 +134,28 @@ impl<'a> App<'a> {
                                 self.exit = true;
                             }
                             KeyCode::Char('k') | KeyCode::Up => {
-                                let _ = self.state.navigate_up(1);
+                                let result = self.state.navigate_up(1);
+                                self.report_error(result);
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('j') | KeyCode::Down => {
-                                let _ = self.state.navigate_down(1);
+                                let result = self.state.navigate_down(1);
+                                self.report_error(result);
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('h') | KeyCode::Left => {
                                 if key.modifiers.contains(KeyModifiers::CONTROL) {
-                                    self.state.toggle_hidden_files();
+                                    let result = self.state.toggle_hidden_files();
+                                    self.report_error(result);
                                 } else {
-                                    let _ = self.state.navigate_to_parent();
+                                    let result = self.state.navigate_to_parent();
+                                    self.report_error(result);
                                 }
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('l') | KeyCode::Right => {
-                                let _ = self.state.navigate_to_child_or_exec();
+                                let result = self.state.navigate_to_child_or_exec();
+                                self.report_error(result);
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('r') => {
@@ -163,7 +171,8 @@ impl<'a> App<'a> {
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('p') => {
-                                let _ = self.state.paste_files();
+                                let result = self.state.paste_files();
+                                self.report_error(result);
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('v') => {
@@ -171,7 +180,8 @@ impl<'a> App<'a> {
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char(' ') => {
-                                self.state.mark_and_down();
+                                let result = self.state.mark_and_down();
+                                self.report_error(result);
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('b') => {
@@ -184,7 +194,8 @@ impl<'a> App<'a> {
                             }
                             KeyCode::Char('d') => {
                                 if key.modifiers.contains(KeyModifiers::CONTROL) {
-                                    let _ = self.state.navigate_down(25);
+                                    let result = self.state.navigate_down(25);
+                                    self.report_error(result);
                                 } else {
                                     self.state.open_hint_bar(HintBarMode::Delete);
                                 }
@@ -192,7 +203,8 @@ impl<'a> App<'a> {
                             }
                             KeyCode::Char('u') => {
                                 if key.modifiers.contains(KeyModifiers::CONTROL) {
-                                    let _ = self.state.navigate_up(25);
+                                    let result = self.state.navigate_up(25);
+                                    self.report_error(result);
                                 }
                                 self.needs_redraw = true;
                             }
@@ -201,16 +213,19 @@ impl<'a> App<'a> {
                                 self.needs_redraw = true;
                             }
                             KeyCode::Esc => {
-                                self.state.exit_search_mode();
+                                let result = self.state.exit_search_mode();
+                                self.report_error(result);
                                 self.state.clear_marks();
                                 self.needs_redraw = true;
                             }
                             KeyCode::Char('n') => {
                                 if self.state.mode == Mode::Search {
                                     if key.modifiers.contains(KeyModifiers::SHIFT) {
-                                        self.state.next_match("prev".to_string());
+                                        let result = self.state.next_match("prev".to_string());
+                                        self.report_error(result);
                                     } else {
-                                        self.state.next_match("next".to_string());
+                                        let result = self.state.next_match("next".to_string());
+                                        self.report_error(result);
                                     }
                                     self.needs_redraw = true;
                                 }
@@ -225,7 +240,8 @@ impl<'a> App<'a> {
                             self.state.commit_changes();
                         }
                         if self.state.modal_type.is_bottom_line() {
-                            self.state.commit_search();
+                            let result = self.state.commit_search();
+                            self.report_error(result);
                         }
                         self.needs_redraw = true;
                     }
@@ -242,11 +258,13 @@ impl<'a> App<'a> {
                 },
                 Mode::Visual { .. } => match key.code {
                     KeyCode::Char('k') | KeyCode::Up => {
-                        let _ = self.state.navigate_up(1);
+                        let result = self.state.navigate_up(1);
+                        self.report_error(result);
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
-                        let _ = self.state.navigate_down(1);
+                        let result = self.state.navigate_down(1);
+                        self.report_error(result);
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('[') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -273,11 +291,13 @@ impl<'a> App<'a> {
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('k') | KeyCode::Up => {
-                        let _ = self.state.bookmarks_nagivate_up();
+                        let result = self.state.bookmarks_nagivate_up();
+                        self.report_error(result);
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
-                        let _ = self.state.bookmarks_nagivate_down();
+                        let result = self.state.bookmarks_nagivate_down();
+                        self.report_error(result);
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('d') => {
@@ -285,11 +305,13 @@ impl<'a> App<'a> {
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('l') => {
-                        let _ = self.state.open_dir_from_bookmark();
+                        let result = self.state.open_dir_from_bookmark();
+                        self.report_error(result);
                         self.needs_redraw = true;
                     }
                     KeyCode::Enter => {
-                        let _ = self.state.open_dir_from_bookmark();
+                        let result = self.state.open_dir_from_bookmark();
+                        self.report_error(result);
                         self.needs_redraw = true;
                     }
                     _ => {}
@@ -297,6 +319,14 @@ impl<'a> App<'a> {
             }
         }
         Ok(())
+    }
+
+    fn report_error(&mut self, result: io::Result<()>) {
+        if let Err(error) = result {
+            self.state.notification = Some(Notification::Error {
+                msg: error.to_string().into(),
+            });
+        }
     }
 }
 
@@ -310,4 +340,24 @@ pub fn cleanup_terminal() -> io::Result<()> {
         .and(screen_result)
         .and(mouse_result)
         .and(cursor_result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn state_errors_are_reported_as_notifications() {
+        let mut app = App::new(Config::default()).unwrap();
+
+        app.report_error(Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "denied",
+        )));
+
+        assert!(matches!(
+            app.state.notification,
+            Some(Notification::Error { .. })
+        ));
+    }
 }

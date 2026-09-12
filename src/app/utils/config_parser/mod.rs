@@ -1,6 +1,10 @@
 use clap::Parser;
-use std::fs;
-use std::path::PathBuf;
+use std::{
+    ffi::OsString,
+    fs::{self, OpenOptions},
+    io::{self, Write},
+    path::{Path, PathBuf},
+};
 
 use crate::app::utils::config_parser::default_config::Config;
 
@@ -58,9 +62,79 @@ fn load_config_from(args: Args) -> Config {
     config
 }
 
-pub fn save_config(config: &Config) -> std::io::Result<()> {
-    let toml_string = toml::to_string(config).map_err(std::io::Error::other)?;
-    fs::write(&config.config_path, toml_string)
+fn validate_existing_config(path: &Path) -> io::Result<Option<fs::Permissions>> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let content = fs::read_to_string(path)?;
+    toml::from_str::<Config>(&content).map_err(|error| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "Refusing to overwrite malformed config '{}': {error}",
+                path.display()
+            ),
+        )
+    })?;
+    Ok(Some(metadata.permissions()))
+}
+
+fn atomic_write(
+    path: &Path,
+    content: &[u8],
+    permissions: Option<fs::Permissions>,
+) -> io::Result<()> {
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid config path"))?;
+
+    for counter in 0_u32.. {
+        let mut temp_name = OsString::from(".");
+        temp_name.push(file_name);
+        temp_name.push(format!(".tmp-{}-{counter}", std::process::id()));
+        let temp_path = parent.join(temp_name);
+        let mut temp_file = match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)
+        {
+            Ok(file) => file,
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        };
+
+        let result = (|| {
+            temp_file.write_all(content)?;
+            temp_file.sync_all()?;
+            if let Some(permissions) = permissions {
+                fs::set_permissions(&temp_path, permissions)?;
+            }
+            drop(temp_file);
+            fs::rename(&temp_path, path)
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(&temp_path);
+        }
+        return result;
+    }
+    unreachable!()
+}
+
+pub fn save_config(config: &Config) -> io::Result<()> {
+    let path = if config.config_path.is_symlink() {
+        config.config_path.canonicalize()?
+    } else {
+        config.config_path.clone()
+    };
+    let permissions = validate_existing_config(&path)?;
+    let toml_string = toml::to_string(config).map_err(io::Error::other)?;
+    atomic_write(&path, toml_string.as_bytes(), permissions)
 }
 
 #[cfg(test)]
@@ -82,5 +156,41 @@ mod tests {
         let saved = fs::read_to_string(config_path).unwrap();
         assert!(saved.contains("editor = \"vim\""));
         assert!(!saved.contains("config_path"));
+    }
+
+    #[test]
+    fn malformed_config_is_never_overwritten() {
+        let temp = tempdir().unwrap();
+        let config_path = temp.path().join("config.toml");
+        let malformed = "[common\neditor = nope";
+        fs::write(&config_path, malformed).unwrap();
+        let config = Config {
+            config_path: config_path.clone(),
+            ..Config::default()
+        };
+
+        let error = save_config(&config).unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert_eq!(fs::read_to_string(config_path).unwrap(), malformed);
+    }
+
+    #[test]
+    fn config_save_replaces_valid_file_without_leaving_temp_files() {
+        let temp = tempdir().unwrap();
+        let config_path = temp.path().join("config.toml");
+        let mut config = Config {
+            config_path: config_path.clone(),
+            ..Config::default()
+        };
+        save_config(&config).unwrap();
+        config.common.editor = "vim".into();
+
+        save_config(&config).unwrap();
+
+        assert!(fs::read_to_string(config_path)
+            .unwrap()
+            .contains("editor = \"vim\""));
+        assert_eq!(fs::read_dir(temp.path()).unwrap().count(), 1);
     }
 }

@@ -17,8 +17,8 @@ use crate::app::{
     ui::modal::{ModalKind, UnderLineModalAction},
     utils::{
         fs::{
-            copy_file_path, create_dir, create_file, exec, exec_shell_in, paste_file, remove_file,
-            remove_file_to_trash, rename_file,
+            copy_file_path, create_dir, create_file, exec, exec_shell_in, move_file, paste_file,
+            remove_file, remove_file_to_trash, rename_file, MoveOutcome,
         },
         i18n::Lang,
     },
@@ -34,11 +34,11 @@ pub trait FileManager {
     fn rename_file(&mut self);
     fn copy_files(&mut self, action: ClipboardAction);
     fn paste_files(&mut self) -> io::Result<()>;
-    fn delete_files(&mut self, mode: DeleteMode);
+    fn delete_files(&mut self, mode: DeleteMode) -> io::Result<()>;
     fn commit_changes(&mut self);
     fn execute_file(&mut self, file_name: &Path) -> io::Result<()>;
     fn switch_to_current_dir(&self);
-    fn toggle_hidden_files(&mut self);
+    fn toggle_hidden_files(&mut self) -> io::Result<()>;
 }
 
 fn selected_paths(state: &State<'_>) -> Option<Vec<PathBuf>> {
@@ -209,7 +209,7 @@ impl<'a> FileManager for State<'a> {
         }
     }
 
-    fn delete_files(&mut self, mode: DeleteMode) {
+    fn delete_files(&mut self, mode: DeleteMode) -> io::Result<()> {
         let Some(files_to_delete) = selected_paths(self) else {
             self.notification = Some(Notification::Warn {
                 msg: Lang::en("items_not_deleted").into(),
@@ -217,7 +217,7 @@ impl<'a> FileManager for State<'a> {
             if self.modal_type.is_hint_bar() {
                 self.hide_hint_bar();
             }
-            return;
+            return Ok(());
         };
         let files_to_delete = match deletion_paths(files_to_delete, &self.current_dir) {
             Ok(paths) => paths,
@@ -228,7 +228,7 @@ impl<'a> FileManager for State<'a> {
                 if self.modal_type.is_hint_bar() {
                     self.hide_hint_bar();
                 }
-                return;
+                return Ok(());
             }
         };
         let mut successful_deletions = 0;
@@ -269,7 +269,7 @@ impl<'a> FileManager for State<'a> {
         }
         self.clear_marks();
         let position_id = get_position(&self.positions_map, &self.current_dir);
-        let _ = self.reset_state_except_notifications(position_id.saturating_sub(1));
+        self.reset_state_except_notifications(position_id.saturating_sub(1))
     }
 
     fn paste_files(&mut self) -> io::Result<()> {
@@ -282,12 +282,17 @@ impl<'a> FileManager for State<'a> {
                 let mut errors = Vec::new();
 
                 for file in items {
-                    match paste_file(&file, &self.current_dir) {
-                        Ok(()) if action == ClipboardAction::Cut => match remove_file(&file) {
-                            Ok(()) => completed_files += 1,
-                            Err(error) => errors.push(error),
-                        },
-                        Ok(()) => completed_files += 1,
+                    let result = if action == ClipboardAction::Cut {
+                        move_file(&file, &self.current_dir).map(|outcome| match outcome {
+                            MoveOutcome::Moved => None,
+                            MoveOutcome::CopiedButSourceRetained(error) => Some(error),
+                        })
+                    } else {
+                        paste_file(&file, &self.current_dir).map(|()| None)
+                    };
+                    match result {
+                        Ok(None) => completed_files += 1,
+                        Ok(Some(error)) => errors.push(error),
                         Err(err) => {
                             errors.push(err);
                             retry_items.push(file);
@@ -328,14 +333,13 @@ impl<'a> FileManager for State<'a> {
                     }
                     .into();
                 }
-                let position_id = get_position(&self.positions_map, &self.current_dir);
-                let _ = self.reset_state_except_notifications(position_id);
                 self.clipboard = (!retry_items.is_empty()).then_some(Clipboard::File {
                     items: retry_items,
                     action,
                 });
                 self.clear_marks();
-                Ok(())
+                let position_id = get_position(&self.positions_map, &self.current_dir);
+                self.reset_state_except_notifications(position_id)
             }
             None => {
                 self.notification = Notification::Warn {
@@ -348,30 +352,34 @@ impl<'a> FileManager for State<'a> {
     }
 
     fn execute_file(&mut self, file_name: &Path) -> io::Result<()> {
-        exec(&self.config.common.editor, &[file_name.as_os_str()])?;
+        let editor_result = exec(&self.config.common.editor, &[file_name.as_os_str()]);
         self.from_external_app = true;
         let position_id = get_position(&self.positions_map, &self.current_dir);
-        self.reset_state_except_notifications(position_id)?;
-        let refreshed_position = position_id.min(self.files[1].len().saturating_sub(1));
-        update_dir_position(
-            &mut self.positions_map,
-            &self.current_dir,
-            refreshed_position,
-        );
-        if refreshed_position != position_id {
-            self.reset_state_except_notifications(refreshed_position)?;
-        }
-        Ok(())
+        let refresh_result = self
+            .reset_state_except_notifications(position_id)
+            .and_then(|()| {
+                let refreshed_position = position_id.min(self.files[1].len().saturating_sub(1));
+                update_dir_position(
+                    &mut self.positions_map,
+                    &self.current_dir,
+                    refreshed_position,
+                );
+                if refreshed_position != position_id {
+                    self.reset_state_except_notifications(refreshed_position)?;
+                }
+                Ok(())
+            });
+        editor_result.and(refresh_result)
     }
 
     fn switch_to_current_dir(&self) {
         let _ = exec_shell_in(&self.current_dir);
     }
 
-    fn toggle_hidden_files(&mut self) {
+    fn toggle_hidden_files(&mut self) -> io::Result<()> {
         self.show_hidden_files = !self.show_hidden_files;
         let position_id = get_position(&self.positions_map, &self.current_dir);
-        let _ = self.reset_state_except_notifications(position_id);
+        self.reset_state_except_notifications(position_id)
     }
 }
 
@@ -401,7 +409,7 @@ mod tests {
         let mut state = create_test_state();
         state.files[1].clear();
 
-        state.delete_files(DeleteMode::Permanent);
+        state.delete_files(DeleteMode::Permanent).unwrap();
 
         assert!(matches!(
             state.notification,
@@ -482,7 +490,7 @@ mod tests {
         let mut state = create_test_state_at(&current).unwrap();
         state.marked = vec![missing, existing.clone()];
 
-        state.delete_files(DeleteMode::Permanent);
+        state.delete_files(DeleteMode::Permanent).unwrap();
 
         assert!(!existing.exists());
         assert!(matches!(

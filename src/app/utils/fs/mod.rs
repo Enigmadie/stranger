@@ -1,6 +1,6 @@
 use std::{
     ffi::OsStr,
-    fs::{File, OpenOptions},
+    fs::{File, Metadata, OpenOptions},
     io::{self, stdout},
     path::{Component, Path, PathBuf},
     process::{Command, Stdio},
@@ -120,6 +120,12 @@ pub fn copy_file_path(file_path: PathBuf) -> Result<PathBuf, io::Error> {
         .map_err(|_| io::Error::new(io::ErrorKind::NotFound, Lang::en("items_not_found")))
 }
 
+#[derive(Debug)]
+pub enum MoveOutcome {
+    Moved,
+    CopiedButSourceRetained(io::Error),
+}
+
 fn reserve_unique_file(path: &Path) -> io::Result<(PathBuf, File)> {
     loop {
         let destination = uniquify_path(path);
@@ -199,7 +205,7 @@ fn copy_directory_contents(source: &Path, destination: &Path) -> io::Result<()> 
     Ok(())
 }
 
-pub fn paste_file(src_path: &Path, dest_path: &Path) -> io::Result<()> {
+fn prepare_transfer(src_path: &Path, dest_path: &Path) -> io::Result<(Metadata, PathBuf)> {
     let source_metadata = src_path.symlink_metadata().map_err(|error| {
         io::Error::new(
             error.kind(),
@@ -231,16 +237,21 @@ pub fn paste_file(src_path: &Path, dest_path: &Path) -> io::Result<()> {
         if destination == source || destination.starts_with(&source) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                "Cannot copy a directory into itself",
+                "Cannot copy or move a directory into itself",
             ));
         }
     }
 
-    let dest_dir = dest_path.join(
+    let destination = dest_path.join(
         src_path
             .file_name()
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid path name"))?,
     );
+    Ok((source_metadata, destination))
+}
+
+pub fn paste_file(src_path: &Path, dest_path: &Path) -> io::Result<()> {
+    let (source_metadata, dest_dir) = prepare_transfer(src_path, dest_path)?;
 
     let source_type = source_metadata.file_type();
     if source_type.is_symlink() {
@@ -271,6 +282,40 @@ pub fn paste_file(src_path: &Path, dest_path: &Path) -> io::Result<()> {
         ));
     }
     Ok(())
+}
+
+fn move_file_with<F>(src_path: &Path, dest_path: &Path, mut rename: F) -> io::Result<MoveOutcome>
+where
+    F: FnMut(&Path, &Path) -> io::Result<()>,
+{
+    let (source_metadata, destination) = prepare_transfer(src_path, dest_path)?;
+    let source_type = source_metadata.file_type();
+    if !source_type.is_symlink() && !source_type.is_file() && !source_type.is_dir() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            Lang::en("items_not_pasted"),
+        ));
+    }
+
+    loop {
+        let destination = uniquify_path(&destination);
+        match rename(src_path, &destination) {
+            Ok(()) => return Ok(MoveOutcome::Moved),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) if error.kind() == io::ErrorKind::CrossesDevices => {
+                paste_file(src_path, dest_path)?;
+                return Ok(match remove_file(src_path) {
+                    Ok(()) => MoveOutcome::Moved,
+                    Err(error) => MoveOutcome::CopiedButSourceRetained(error),
+                });
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+pub fn move_file(src_path: &Path, dest_path: &Path) -> io::Result<MoveOutcome> {
+    move_file_with(src_path, dest_path, rename_no_replace)
 }
 
 pub fn remove_file(path: &Path) -> io::Result<()> {
@@ -317,18 +362,27 @@ pub fn whoami_info() -> io::Result<String> {
     Ok(format!("{}@{}", username, hostname))
 }
 
-pub fn exec(program: &str, args: &[&OsStr]) -> IoResult<()> {
-    suspend_terminal()?;
-    let command_result = Command::new(program)
+fn run_command(program: &str, args: &[&OsStr]) -> io::Result<()> {
+    let status = Command::new(program)
         .args(args)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .status();
+        .status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(io::Error::other(format!(
+            "{program} exited with status {status}"
+        )))
+    }
+}
 
+pub fn exec(program: &str, args: &[&OsStr]) -> IoResult<()> {
+    suspend_terminal()?;
+    let command_result = run_command(program, args);
     let resume_result = resume_terminal();
-    command_result?;
-    resume_result
+    command_result.and(resume_result)
 }
 
 fn suspend_terminal() -> io::Result<()> {
@@ -468,6 +522,82 @@ mod tests {
             fs::read_to_string(destination.join("folder_/nested.md")).unwrap(),
             "nested"
         );
+    }
+
+    #[test]
+    fn move_renames_without_replacing_a_collision() {
+        let temp = tempdir().unwrap();
+        let source_root = temp.path().join("source");
+        let destination = temp.path().join("destination");
+        fs::create_dir(&source_root).unwrap();
+        fs::create_dir(&destination).unwrap();
+        let source = source_root.join("note.md");
+        fs::write(&source, "new").unwrap();
+        fs::write(destination.join("note.md"), "existing").unwrap();
+
+        assert!(matches!(
+            move_file(&source, &destination).unwrap(),
+            MoveOutcome::Moved
+        ));
+
+        assert!(!source.exists());
+        assert_eq!(
+            fs::read_to_string(destination.join("note.md")).unwrap(),
+            "existing"
+        );
+        assert_eq!(
+            fs::read_to_string(destination.join("note_.md")).unwrap(),
+            "new"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn move_falls_back_to_copy_and_delete_only_across_devices() {
+        let temp = tempdir().unwrap();
+        let destination = temp.path().join("destination");
+        let source = temp.path().join("note.md");
+        fs::create_dir(&destination).unwrap();
+        fs::write(&source, "content").unwrap();
+
+        let outcome = move_file_with(&source, &destination, |_, _| {
+            Err(io::Error::from_raw_os_error(libc::EXDEV))
+        })
+        .unwrap();
+
+        assert!(matches!(outcome, MoveOutcome::Moved));
+        assert!(!source.exists());
+        assert_eq!(
+            fs::read_to_string(destination.join("note.md")).unwrap(),
+            "content"
+        );
+    }
+
+    #[test]
+    fn move_does_not_copy_after_an_unrelated_rename_error() {
+        let temp = tempdir().unwrap();
+        let destination = temp.path().join("destination");
+        let source = temp.path().join("note.md");
+        fs::create_dir(&destination).unwrap();
+        fs::write(&source, "content").unwrap();
+
+        let error = move_file_with(&source, &destination, |_, _| {
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "denied"))
+        })
+        .unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+        assert!(source.exists());
+        assert!(!destination.join("note.md").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn command_non_zero_exit_is_an_error() {
+        let error = run_command("sh", &[OsStr::new("-c"), OsStr::new("exit 7")]).unwrap_err();
+
+        assert!(error.to_string().contains("exited with status"));
+        assert!(error.to_string().contains('7'));
     }
 
     #[cfg(unix)]

@@ -44,7 +44,7 @@ impl MillerColumns {
                     with_meta: true,
                 };
                 let child_files =
-                    Self::parse_dir_files(&child_dir_entry, &search_pattern, show_hidden_files)?;
+                    Self::parse_child_preview(&child_dir_entry, &search_pattern, show_hidden_files);
                 (child_dir_entry, child_files)
             } else {
                 (DirEntry::empty_dir(), vec![])
@@ -134,6 +134,14 @@ impl MillerColumns {
         }
     }
 
+    fn parse_child_preview(
+        dir_entry: &DirEntry,
+        search_pattern: &Option<String>,
+        show_hidden_files: bool,
+    ) -> Vec<FileEntry> {
+        Self::parse_dir_files(dir_entry, search_pattern, show_hidden_files).unwrap_or_default()
+    }
+
     pub fn check_is_current_dir_is_not_empty(files: &[FileEntry]) -> bool {
         !files.is_empty()
     }
@@ -188,5 +196,15 @@ mod tests {
 
         assert!(matches!(link.variant, FileVariant::Symlink { .. }));
         assert!(matches!(pipe.variant, FileVariant::Special { .. }));
+    }
+
+    #[test]
+    fn child_preview_failure_is_non_fatal() {
+        let missing = DirEntry {
+            dir_name: Some(Path::new("/definitely/missing/stranger-preview").to_path_buf()),
+            with_meta: true,
+        };
+
+        assert!(MillerColumns::parse_child_preview(&missing, &None, false).is_empty());
     }
 }

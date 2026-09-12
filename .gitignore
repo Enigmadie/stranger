@@ -25,3 +25,4 @@ config.toml
 *.log
 
 TODO.local.md
+AGENTS.md

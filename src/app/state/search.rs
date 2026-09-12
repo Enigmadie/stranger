@@ -1,3 +1,5 @@
+use std::io;
+
 use crate::app::{
     model::miller::positions::{get_position, update_dir_position},
     state::{Mode, State},
@@ -7,9 +9,9 @@ use crate::app::{
 
 pub trait Search {
     fn search(&mut self);
-    fn commit_search(&mut self);
-    fn next_match(&mut self, direction: String);
-    fn exit_search_mode(&mut self);
+    fn commit_search(&mut self) -> io::Result<()>;
+    fn next_match(&mut self, direction: String) -> io::Result<()>;
+    fn exit_search_mode(&mut self) -> io::Result<()>;
 }
 
 impl<'a> Search for State<'a> {
@@ -18,23 +20,23 @@ impl<'a> Search for State<'a> {
         self.modal_type = ModalKind::BottomLine;
     }
 
-    fn commit_search(&mut self) {
+    fn commit_search(&mut self) -> io::Result<()> {
         let query = self.input.lines().join("").to_lowercase();
 
         self.search_pattern = Some(query);
         let positiond_id = get_position(&self.positions_map, &self.current_dir);
         self.setup_default_input();
         self.mode = Mode::Search;
-        let _ = self.reset_state(positiond_id);
-        self.next_match("next".to_string());
+        self.reset_state(positiond_id)?;
+        self.next_match("next".to_string())
     }
 
-    fn next_match(&mut self, direction: String) {
+    fn next_match(&mut self, direction: String) -> io::Result<()> {
         if let Some(pattern) = &self.search_pattern {
             let current_position = get_position(&self.positions_map, &self.current_dir);
             let files = &self.files[1];
             if files.is_empty() || pattern.is_empty() {
-                return;
+                return Ok(());
             }
 
             let start_index = match direction.as_ref() {
@@ -54,9 +56,7 @@ impl<'a> Search for State<'a> {
             }
 
             if let Some(new_position) = found_index {
-                if self.reset_state(new_position).is_err() {
-                    return;
-                }
+                self.reset_state(new_position)?;
                 update_dir_position(&mut self.positions_map, &self.current_dir, new_position);
             } else {
                 self.notification = Some(crate::app::state::Notification::Info {
@@ -64,12 +64,13 @@ impl<'a> Search for State<'a> {
                 });
             }
         }
+        Ok(())
     }
 
-    fn exit_search_mode(&mut self) {
+    fn exit_search_mode(&mut self) -> io::Result<()> {
         self.mode = Mode::Normal;
         self.search_pattern = None;
         let positiond_id = get_position(&self.positions_map, &self.current_dir);
-        let _ = self.reset_state(positiond_id);
+        self.reset_state(positiond_id)
     }
 }

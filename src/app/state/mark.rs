@@ -1,3 +1,5 @@
+use std::io;
+
 use crate::app::{
     model::file::{build_full_path, get_current_file},
     state::{Navigation, State},
@@ -5,7 +7,7 @@ use crate::app::{
 
 pub trait Mark {
     fn mark_item(&mut self);
-    fn mark_and_down(&mut self);
+    fn mark_and_down(&mut self) -> io::Result<()>;
     fn clear_marks(&mut self);
 }
 
@@ -22,7 +24,7 @@ impl<'a> Mark for State<'a> {
         }
     }
 
-    fn mark_and_down(&mut self) {
+    fn mark_and_down(&mut self) -> io::Result<()> {
         let current_file = get_current_file(&self.positions_map, &self.current_dir, &self.files[1]);
         if let Some(file) = current_file {
             let path = build_full_path(&self.current_dir, file);
@@ -32,7 +34,7 @@ impl<'a> Mark for State<'a> {
                 self.marked.retain(|marked| marked != &path);
             }
         }
-        let _ = self.navigate_down(1);
+        self.navigate_down(1)
     }
 
     fn clear_marks(&mut self) {
@@ -43,8 +45,12 @@ impl<'a> Mark for State<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::{state::Mode, test_utils::create_test_state};
-    use std::path::PathBuf;
+    use crate::app::{
+        state::Mode,
+        test_utils::{create_test_state, create_test_state_at},
+    };
+    use std::{fs, path::PathBuf};
+    use tempfile::tempdir;
 
     #[test]
     fn mark_item_adds_file() {
@@ -64,9 +70,12 @@ mod tests {
 
     #[test]
     fn marks_and_moves_down() {
-        let mut state = create_test_state();
+        let temp = tempdir().unwrap();
+        fs::write(temp.path().join("file1"), "").unwrap();
+        fs::write(temp.path().join("file2"), "").unwrap();
+        let mut state = create_test_state_at(temp.path()).unwrap();
         let initial_length = state.marked.len();
-        state.mark_and_down();
+        state.mark_and_down().unwrap();
         assert_eq!(state.marked.len(), initial_length + 1);
         assert_eq!(state.mode, Mode::Normal);
     }
