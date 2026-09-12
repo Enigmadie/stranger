@@ -336,14 +336,22 @@ pub fn remove_file(path: &Path) -> io::Result<()> {
 }
 
 pub fn remove_file_to_trash(path: &Path) -> io::Result<()> {
-    if path.symlink_metadata().is_err() {
-        return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            Lang::en_fmt("path_does_not_exist", &[&path.to_string_lossy()]),
-        ));
-    }
+    remove_file_to_trash_with(path, |path| {
+        trash::delete(path).map_err(|error| io::Error::other(error.to_string()))
+    })
+}
 
-    trash::delete(path).map_err(|error| io::Error::other(error.to_string()))
+fn remove_file_to_trash_with<F>(path: &Path, trash_delete: F) -> io::Result<()>
+where
+    F: FnOnce(&Path) -> io::Result<()>,
+{
+    path.symlink_metadata().map_err(|error| {
+        io::Error::new(
+            error.kind(),
+            Lang::en_fmt("path_does_not_exist", &[&path.to_string_lossy()]),
+        )
+    })?;
+    trash_delete(path)
 }
 
 pub fn whoami_info() -> io::Result<String> {
@@ -508,6 +516,27 @@ mod tests {
     }
 
     #[test]
+    fn directory_cannot_be_moved_into_itself_or_descendant() {
+        let temp = tempdir().unwrap();
+        let source = temp.path().join("source");
+        let descendant = source.join("nested");
+        fs::create_dir_all(&descendant).unwrap();
+        let mut rename_called = false;
+
+        for destination in [&source, &descendant] {
+            let error = move_file_with(&source, destination, |_, _| {
+                rename_called = true;
+                Ok(())
+            })
+            .unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        }
+
+        assert!(!rename_called);
+        assert!(descendant.exists());
+    }
+
+    #[test]
     fn paste_preserves_colliding_file_and_directory() {
         let temp = tempdir().unwrap();
         let source_root = temp.path().join("source");
@@ -590,6 +619,35 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn failed_cross_device_directory_copy_keeps_source() {
+        use std::{ffi::CString, os::unix::ffi::OsStrExt};
+
+        let temp = tempdir().unwrap();
+        let source = temp.path().join("source");
+        let destination = temp.path().join("destination");
+        fs::create_dir(&source).unwrap();
+        fs::create_dir(&destination).unwrap();
+        fs::write(source.join("keep.md"), "keep me").unwrap();
+        let fifo = source.join("pipe");
+        let fifo_c = CString::new(fifo.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo_c.as_ptr(), 0o600) }, 0);
+
+        let error = move_file_with(&source, &destination, |_, _| {
+            Err(io::Error::from_raw_os_error(libc::EXDEV))
+        })
+        .unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(
+            fs::read_to_string(source.join("keep.md")).unwrap(),
+            "keep me"
+        );
+        assert!(fifo.exists());
+        assert!(!destination.join("source").exists());
+    }
+
     #[test]
     fn move_does_not_copy_after_an_unrelated_rename_error() {
         let temp = tempdir().unwrap();
@@ -667,6 +725,21 @@ mod tests {
 
         assert!(target.join("keep").exists());
         assert!(link.symlink_metadata().is_err());
+    }
+
+    #[test]
+    fn trash_failure_does_not_permanently_delete_file() {
+        let temp = tempdir().unwrap();
+        let file = temp.path().join("keep.md");
+        fs::write(&file, "keep me").unwrap();
+
+        let error = remove_file_to_trash_with(&file, |_| {
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "denied"))
+        })
+        .unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(fs::read_to_string(file).unwrap(), "keep me");
     }
 
     #[cfg(unix)]
