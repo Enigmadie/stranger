@@ -1,4 +1,4 @@
-use std::{io, path::PathBuf};
+use std::io;
 
 use crate::app::{
     model::{
@@ -8,13 +8,23 @@ use crate::app::{
     state::{FileManager, Mode, State},
 };
 
-fn update_visual_selection(state: &mut State<'_>, previous: PathBuf, target: PathBuf) {
-    if state.marked.contains(&target) {
-        state.marked.retain(|path| path != &previous);
-    } else {
-        state.marked.push(target);
+fn update_visual_selection(state: &mut State<'_>, anchor: usize, cursor: usize) {
+    state
+        .marked
+        .retain(|path| path.parent() != Some(state.current_dir.as_path()));
+    if state.files[1].is_empty() {
+        return;
     }
-    state.mode = Mode::Visual { init: false };
+    let anchor = anchor.min(state.files[1].len() - 1);
+    let cursor = cursor.min(state.files[1].len() - 1);
+    state.mode = Mode::Visual { anchor };
+    let start = anchor.min(cursor);
+    let end = anchor.max(cursor);
+    state.marked.extend(
+        state.files[1][start..=end]
+            .iter()
+            .map(|file| state.current_dir.join(&file.name)),
+    );
 }
 
 pub trait Navigation {
@@ -49,18 +59,14 @@ impl<'a> Navigation for State<'a> {
         let position_id = get_position(&self.positions_map, &self.current_dir);
         if position_id > 0 {
             let new_position_id = position_id.saturating_sub(step);
-            let previous = self.files[1]
-                .get(position_id)
-                .map(|file| build_full_path(&self.current_dir, file));
-            let target = self.files[1]
-                .get(new_position_id)
-                .map(|file| build_full_path(&self.current_dir, file));
+            let visual_anchor = match self.mode {
+                Mode::Visual { anchor } => Some(anchor),
+                _ => None,
+            };
             self.reset_state(new_position_id)?;
             update_dir_position(&mut self.positions_map, &self.current_dir, new_position_id);
-            if matches!(self.mode, Mode::Visual { .. }) {
-                if let (Some(previous), Some(target)) = (previous, target) {
-                    update_visual_selection(self, previous, target);
-                }
+            if let Some(anchor) = visual_anchor {
+                update_visual_selection(self, anchor, new_position_id);
             }
         }
         Ok(())
@@ -72,19 +78,15 @@ impl<'a> Navigation for State<'a> {
 
         if !self.files[1].is_empty() {
             let new_position_id = (position_id + step).min(last_index);
-            let previous = self.files[1]
-                .get(position_id)
-                .map(|file| build_full_path(&self.current_dir, file));
-            let target = self.files[1]
-                .get(new_position_id)
-                .map(|file| build_full_path(&self.current_dir, file));
+            let visual_anchor = match self.mode {
+                Mode::Visual { anchor } => Some(anchor),
+                _ => None,
+            };
 
             self.reset_state(new_position_id)?;
             update_dir_position(&mut self.positions_map, &self.current_dir, new_position_id);
-            if matches!(self.mode, Mode::Visual { .. }) {
-                if let (Some(previous), Some(target)) = (previous, target) {
-                    update_visual_selection(self, previous, target);
-                }
+            if let Some(anchor) = visual_anchor {
+                update_visual_selection(self, anchor, new_position_id);
             }
         }
 
@@ -198,5 +200,49 @@ mod tests {
 
         state.navigate_up(1).unwrap();
         assert_eq!(state.marked, vec![temp.path().join("a")]);
+    }
+
+    #[test]
+    fn visual_selection_keeps_an_already_marked_anchor() {
+        let temp = tempdir().unwrap();
+        fs::write(temp.path().join("a"), "").unwrap();
+        fs::write(temp.path().join("b"), "").unwrap();
+        let mut state = create_test_state_at(temp.path()).unwrap();
+        state.marked.push(temp.path().join("a"));
+
+        state.enter_visual_mode();
+        state.navigate_down(1).unwrap();
+
+        assert_eq!(
+            state.marked,
+            vec![temp.path().join("a"), temp.path().join("b")]
+        );
+    }
+
+    #[test]
+    fn visual_selection_is_an_inclusive_range_across_the_anchor() {
+        let temp = tempdir().unwrap();
+        for name in ["a", "b", "c", "d"] {
+            fs::write(temp.path().join(name), "").unwrap();
+        }
+        let mut state = create_test_state_at(temp.path()).unwrap();
+        state.navigate_down(2).unwrap();
+        state.enter_visual_mode();
+
+        state.navigate_up(2).unwrap();
+        assert_eq!(
+            state.marked,
+            vec![
+                temp.path().join("a"),
+                temp.path().join("b"),
+                temp.path().join("c")
+            ]
+        );
+
+        state.navigate_down(3).unwrap();
+        assert_eq!(
+            state.marked,
+            vec![temp.path().join("c"), temp.path().join("d")]
+        );
     }
 }

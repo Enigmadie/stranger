@@ -1,3 +1,4 @@
+use crate::app::ui::file_preview::PreviewCache;
 use std::{collections::HashMap, path::PathBuf};
 use tui_textarea::TextArea;
 
@@ -32,6 +33,8 @@ pub fn create_test_state_at(path: &std::path::Path) -> std::io::Result<State<'st
         marked: vec![],
         search_pattern: None,
         show_hidden_files: false,
+        preview: Vec::new(),
+        preview_cache: PreviewCache::default(),
     })
 }
 
@@ -104,5 +107,7 @@ pub fn create_test_state() -> State<'static> {
         marked: vec![],
         search_pattern: None,
         show_hidden_files: false,
+        preview: Vec::new(),
+        preview_cache: PreviewCache::default(),
     }
 }

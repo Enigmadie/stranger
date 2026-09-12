@@ -3,14 +3,18 @@ use std::env;
 use std::io::{self};
 use std::path::{Path, PathBuf};
 
+use ratatui::text::Line;
 use tui_textarea::TextArea;
 
 use crate::app::config::constants::model::NUM_COLUMNS;
 use crate::app::model::clipboard::Clipboard;
 use crate::app::model::miller::columns::MillerColumns;
 use crate::app::model::miller::entries::{DirEntry, FileEntry};
-use crate::app::model::miller::positions::parse_path_positions;
+use crate::app::model::miller::positions::{
+    get_position, parse_path_positions, update_dir_position,
+};
 use crate::app::model::notification::Notification;
+use crate::app::ui::file_preview::PreviewCache;
 use crate::app::ui::modal::ModalKind;
 use crate::app::utils::config_parser::default_config::Config;
 use crate::app::utils::i18n::Lang;
@@ -31,7 +35,7 @@ pub use mark::Mark;
 pub enum Mode {
     Normal,
     Insert,
-    Visual { init: bool },
+    Visual { anchor: usize },
     Bookmarks { position_id: usize },
     Search,
 }
@@ -52,6 +56,8 @@ pub struct State<'a> {
     pub marked: Vec<PathBuf>,
     pub search_pattern: Option<String>,
     pub show_hidden_files: bool,
+    pub preview: Vec<Line<'static>>,
+    pub(crate) preview_cache: PreviewCache,
 }
 
 impl<'a> State<'a> {
@@ -62,7 +68,7 @@ impl<'a> State<'a> {
         let miller_positions = parse_path_positions(&current_dir, &miller_columns.files);
         let textarea = TextArea::default();
 
-        Ok(State {
+        let mut state = State {
             current_dir,
             files: miller_columns.files,
             dirs: miller_columns.dirs,
@@ -77,7 +83,13 @@ impl<'a> State<'a> {
             notification: None,
             marked: vec![],
             search_pattern: None,
-        })
+            preview: Vec::new(),
+            preview_cache: PreviewCache::default(),
+        };
+        let preview_dir = state.current_dir.clone();
+        let preview_files = state.files[1].clone();
+        state.refresh_preview(&preview_dir, 0, &preview_files);
+        Ok(state)
     }
 
     fn refresh_state(&mut self, target_dir: &Path, new_pos_id: usize) -> io::Result<()> {
@@ -87,12 +99,28 @@ impl<'a> State<'a> {
             self.search_pattern.clone(),
             self.show_hidden_files,
         )?;
+        let new_pos_id = new_pos_id.min(miller_columns.files[1].len().saturating_sub(1));
+        self.refresh_preview(target_dir, new_pos_id, &miller_columns.files[1]);
 
         self.hide_hint_bar();
         self.current_dir = target_dir.to_path_buf();
         self.files = miller_columns.files;
         self.dirs = miller_columns.dirs;
+        update_dir_position(&mut self.positions_map, target_dir, new_pos_id);
         Ok(())
+    }
+
+    fn refresh_preview(&mut self, dir: &Path, position_id: usize, files: &[FileEntry]) {
+        self.preview = files
+            .get(position_id)
+            .filter(|file| file.variant.is_regular_file())
+            .map(|file| dir.join(&file.name))
+            .map(|path| {
+                self.preview_cache
+                    .load(&path, 2048)
+                    .unwrap_or_else(|_| vec![Line::from("Error reading file")])
+            })
+            .unwrap_or_default();
     }
 
     pub fn reset_state(&mut self, new_pos_id: usize) -> io::Result<()> {
@@ -153,8 +181,14 @@ impl<'a> State<'a> {
     }
 
     pub fn enter_visual_mode(&mut self) {
-        self.mark_item();
-        self.mode = Mode::Visual { init: true };
+        let anchor = get_position(&self.positions_map, &self.current_dir)
+            .min(self.files[1].len().saturating_sub(1));
+        self.marked
+            .retain(|path| path.parent() != Some(self.current_dir.as_path()));
+        if let Some(file) = self.files[1].get(anchor) {
+            self.marked.push(self.current_dir.join(&file.name));
+        }
+        self.mode = Mode::Visual { anchor };
         self.notification = Notification::Info {
             msg: Lang::en("visual_mode").into(),
         }
@@ -170,7 +204,9 @@ impl<'a> State<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::test_utils::create_test_state;
+    use crate::app::test_utils::{create_test_state, create_test_state_at};
+    use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn normal_mode_changes_state() {
@@ -186,5 +222,19 @@ mod tests {
         state.enter_insert_mode();
         assert_eq!(state.mode, Mode::Insert);
         assert!(state.notification.is_some());
+    }
+
+    #[test]
+    fn refresh_clamps_a_stale_saved_position() {
+        let temp = tempdir().unwrap();
+        fs::write(temp.path().join("a"), "").unwrap();
+        fs::write(temp.path().join("b"), "").unwrap();
+        let mut state = create_test_state_at(temp.path()).unwrap();
+        update_dir_position(&mut state.positions_map, &state.current_dir, 10);
+
+        state.reset_state(10).unwrap();
+
+        assert_eq!(get_position(&state.positions_map, &state.current_dir), 1);
+        assert_eq!(state.files[1][1].name, "b");
     }
 }

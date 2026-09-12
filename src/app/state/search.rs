@@ -10,8 +10,14 @@ use crate::app::{
 pub trait Search {
     fn search(&mut self);
     fn commit_search(&mut self) -> io::Result<()>;
-    fn next_match(&mut self, direction: String) -> io::Result<()>;
+    fn next_match(&mut self, direction: SearchDirection) -> io::Result<()>;
     fn exit_search_mode(&mut self) -> io::Result<()>;
+}
+
+#[derive(Clone, Copy)]
+pub enum SearchDirection {
+    Forward,
+    Backward,
 }
 
 impl<'a> Search for State<'a> {
@@ -28,10 +34,10 @@ impl<'a> Search for State<'a> {
         self.setup_default_input();
         self.mode = Mode::Search;
         self.reset_state(positiond_id)?;
-        self.next_match("next".to_string())
+        self.next_match(SearchDirection::Forward)
     }
 
-    fn next_match(&mut self, direction: String) -> io::Result<()> {
+    fn next_match(&mut self, direction: SearchDirection) -> io::Result<()> {
         if let Some(pattern) = &self.search_pattern {
             let current_position = get_position(&self.positions_map, &self.current_dir);
             let files = &self.files[1];
@@ -39,16 +45,15 @@ impl<'a> Search for State<'a> {
                 return Ok(());
             }
 
-            let start_index = match direction.as_ref() {
-                "next" => (current_position + 1) % files.len(),
-                "prev" => (current_position + files.len() - 1) % files.len(),
-                _ => (current_position + 1) % files.len(),
-            };
-
             let mut found_index = None;
 
-            for i in 0..files.len() {
-                let index = (start_index + i) % files.len();
+            for distance in 1..=files.len() {
+                let index = match direction {
+                    SearchDirection::Forward => (current_position + distance) % files.len(),
+                    SearchDirection::Backward => {
+                        (current_position + files.len() - (distance % files.len())) % files.len()
+                    }
+                };
                 if files[index].variant.is_matched() {
                     found_index = Some(index);
                     break;
@@ -72,5 +77,49 @@ impl<'a> Search for State<'a> {
         self.search_pattern = None;
         let positiond_id = get_position(&self.positions_map, &self.current_dir);
         self.reset_state(positiond_id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::{
+        model::miller::{entries::FileVariant, positions::get_position},
+        test_utils::create_test_state_at,
+    };
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn set_matched(file: &mut crate::app::model::miller::entries::FileEntry) {
+        match &mut file.variant {
+            FileVariant::File { is_matched, .. }
+            | FileVariant::Directory { is_matched, .. }
+            | FileVariant::Symlink { is_matched }
+            | FileVariant::Special { is_matched } => *is_matched = true,
+        }
+    }
+
+    #[test]
+    fn search_traverses_in_the_requested_direction() {
+        let temp = tempdir().unwrap();
+        for name in ["a", "b", "c"] {
+            fs::write(temp.path().join(name), "").unwrap();
+        }
+        let mut state = create_test_state_at(temp.path()).unwrap();
+        state.search_pattern = Some("match".into());
+        set_matched(&mut state.files[1][0]);
+        set_matched(&mut state.files[1][2]);
+        state.reset_state(1).unwrap();
+        set_matched(&mut state.files[1][0]);
+        set_matched(&mut state.files[1][2]);
+
+        state.next_match(SearchDirection::Backward).unwrap();
+        assert_eq!(get_position(&state.positions_map, &state.current_dir), 0);
+
+        state.reset_state(1).unwrap();
+        set_matched(&mut state.files[1][0]);
+        set_matched(&mut state.files[1][2]);
+        state.next_match(SearchDirection::Forward).unwrap();
+        assert_eq!(get_position(&state.positions_map, &state.current_dir), 2);
     }
 }

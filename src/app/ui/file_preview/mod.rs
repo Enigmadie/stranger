@@ -1,13 +1,74 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{self, Read},
-    path::Path,
+    path::{Path, PathBuf},
+    time::SystemTime,
 };
 
+use once_cell::sync::Lazy;
 use ratatui::{
     style::{Color, Style},
     text::{Line, Span},
 };
+
+static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(SyntaxSet::load_defaults_newlines);
+static THEME_SET: Lazy<ThemeSet> = Lazy::new(ThemeSet::load_defaults);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct FileVersion {
+    len: u64,
+    modified: Option<SystemTime>,
+}
+
+#[derive(Debug, Clone)]
+struct CachedPreview {
+    version: FileVersion,
+    lines: Vec<Line<'static>>,
+}
+
+#[derive(Debug, Default)]
+pub struct PreviewCache {
+    entries: HashMap<PathBuf, CachedPreview>,
+}
+
+impl PreviewCache {
+    pub fn load(&mut self, file_path: &Path, max_bytes: usize) -> io::Result<Vec<Line<'static>>> {
+        let metadata = file_path.symlink_metadata()?;
+        if !metadata.file_type().is_file() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Preview is only available for regular files",
+            ));
+        }
+        let version = FileVersion {
+            len: metadata.len(),
+            modified: metadata.modified().ok(),
+        };
+        if let Some(cached) = self.entries.get(file_path) {
+            if cached.version == version {
+                return Ok(cached.lines.clone());
+            }
+        }
+
+        let lines = highlight_file(file_path, max_bytes)?;
+        if self.entries.len() >= 128 {
+            self.entries.clear();
+        }
+        self.entries.insert(
+            file_path.to_path_buf(),
+            CachedPreview {
+                version,
+                lines: lines.clone(),
+            },
+        );
+        Ok(lines)
+    }
+
+    pub fn invalidate(&mut self, file_path: &Path) {
+        self.entries.remove(file_path);
+    }
+}
 use syntect::{
     easy::HighlightLines,
     highlighting::{Style as SyntectStyle, ThemeSet},
@@ -41,20 +102,18 @@ pub fn highlight_file(file_path: &Path, max_bytes: usize) -> io::Result<Vec<Line
 
     let content = content.replace('\t', "        ");
 
-    let ps = SyntaxSet::load_defaults_newlines();
-    let ts = ThemeSet::load_defaults();
+    let syntax = file_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .and_then(|extension| SYNTAX_SET.find_syntax_by_extension(extension))
+        .unwrap_or_else(|| SYNTAX_SET.find_syntax_plain_text());
 
-    let syntax = ps
-        .find_syntax_for_file(file_path)
-        .unwrap_or_else(|_| Some(ps.find_syntax_plain_text()))
-        .unwrap_or(ps.find_syntax_plain_text());
-
-    let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
+    let mut h = HighlightLines::new(syntax, &THEME_SET.themes["base16-ocean.dark"]);
 
     let mut lines = Vec::new();
     for line in content.lines().take(50) {
         let ranges: Vec<(SyntectStyle, &str)> = h
-            .highlight_line(line, &ps)
+            .highlight_line(line, &SYNTAX_SET)
             .unwrap_or_else(|_| vec![(SyntectStyle::default(), line)]);
         let spans: Vec<Span> = ranges
             .into_iter()
@@ -121,5 +180,37 @@ mod tests {
         let error = highlight_file(&path, 2048).unwrap_err();
 
         assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn preview_cache_reuses_and_invalidates_entries() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("note.md");
+        fs::write(&path, "first").unwrap();
+        let mut cache = PreviewCache::default();
+
+        cache.load(&path, 2048).unwrap();
+        assert_eq!(cache.entries.len(), 1);
+        cache.load(&path, 2048).unwrap();
+        assert_eq!(cache.entries.len(), 1);
+
+        cache.invalidate(&path);
+        assert!(cache.entries.is_empty());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn preview_accepts_non_utf8_paths() {
+        use std::{ffi::OsString, os::unix::ffi::OsStringExt};
+
+        let temp = tempdir().unwrap();
+        let path = temp
+            .path()
+            .join(OsString::from_vec(vec![b'n', b'o', b't', b'e', 0xff]));
+        fs::write(&path, "content").unwrap();
+
+        let lines = highlight_file(&path, 2048).unwrap();
+
+        assert_eq!(lines[0].spans[0].content, "content");
     }
 }

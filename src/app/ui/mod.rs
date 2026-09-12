@@ -157,9 +157,12 @@ impl Footer {
 
 #[cfg(test)]
 mod tests {
-    use ratatui::buffer::Buffer;
+    use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
 
-    use crate::app::test_utils::create_test_state;
+    use crate::app::{
+        test_utils::create_test_state,
+        ui::modal::{hint_bar::HintBarMode, ModalKind, UnderLineModalAction},
+    };
 
     use super::*;
 
@@ -209,5 +212,22 @@ mod tests {
         assert!(text.contains("rwxr-xr-x"));
         assert!(text.contains("10 B"));
         assert!(text.contains("2023-10-01 12:00"));
+    }
+
+    #[test]
+    fn tiny_terminals_render_modals_without_panicking() {
+        for height in 1..=7 {
+            let mut state = create_test_state();
+            state.modal_type = ModalKind::UnderLine {
+                action: UnderLineModalAction::Edit,
+            };
+            let mut terminal = Terminal::new(TestBackend::new(20, height)).unwrap();
+            terminal.draw(|frame| render(&state, frame)).unwrap();
+
+            state.modal_type = ModalKind::HintBar {
+                mode: HintBarMode::Delete,
+            };
+            terminal.draw(|frame| render(&state, frame)).unwrap();
+        }
     }
 }

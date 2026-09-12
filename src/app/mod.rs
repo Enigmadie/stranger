@@ -2,7 +2,7 @@ use crossterm::cursor::Show;
 use crossterm::event::DisableMouseCapture;
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, LeaveAlternateScreen};
-use ratatui::crossterm::event::{self, Event, KeyCode, KeyModifiers};
+use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::prelude::*;
 use std::io::{self, stdout, Stdout};
 use std::time::Duration;
@@ -17,6 +17,7 @@ pub mod utils;
 use crate::app::model::clipboard::ClipboardAction;
 use crate::app::model::notification::Notification;
 use crate::app::state::file_managment::DeleteMode;
+use crate::app::state::search::SearchDirection;
 use crate::app::state::{Bookmarks, FileManager, HintBar, Mark, Mode, Navigation, Search};
 
 use crate::app::ui::modal::hint_bar::HintBarMode;
@@ -24,6 +25,52 @@ use crate::app::ui::modal::ModalKind;
 use crate::app::utils::config_parser::default_config::Config;
 
 use self::state::State;
+
+const INPUT_LIMIT_BYTES: usize = 255;
+
+fn accepts_key_event(
+    mode: &Mode,
+    modal: &ModalKind,
+    kind: KeyEventKind,
+    code: KeyCode,
+    modifiers: KeyModifiers,
+) -> bool {
+    match kind {
+        KeyEventKind::Press => true,
+        KeyEventKind::Release => false,
+        KeyEventKind::Repeat => {
+            if modal.is_hint_bar() {
+                return false;
+            }
+            match mode {
+                Mode::Insert => true,
+                Mode::Normal | Mode::Search => {
+                    matches!(code, KeyCode::Up | KeyCode::Down | KeyCode::Char('j' | 'k'))
+                        || modifiers.contains(KeyModifiers::CONTROL)
+                            && matches!(code, KeyCode::Char('d' | 'u'))
+                        || matches!(mode, Mode::Search) && matches!(code, KeyCode::Char('n' | 'N'))
+                }
+                Mode::Visual { .. } | Mode::Bookmarks { .. } => {
+                    matches!(code, KeyCode::Up | KeyCode::Down | KeyCode::Char('j' | 'k'))
+                }
+            }
+        }
+    }
+}
+
+fn accepts_input(current_bytes: usize, code: KeyCode, modifiers: KeyModifiers) -> bool {
+    let inserted_bytes = match code {
+        KeyCode::Char(character)
+            if !modifiers
+                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER) =>
+        {
+            character.len_utf8()
+        }
+        KeyCode::Tab => 1,
+        _ => 0,
+    };
+    inserted_bytes == 0 || current_bytes.saturating_add(inserted_bytes) <= INPUT_LIMIT_BYTES
+}
 
 #[derive(Debug)]
 pub struct App<'a> {
@@ -65,6 +112,15 @@ impl<'a> App<'a> {
             return Ok(());
         }
         if let Event::Key(key) = event {
+            if !accepts_key_event(
+                &self.state.mode,
+                &self.state.modal_type,
+                key.kind,
+                key.code,
+                key.modifiers,
+            ) {
+                return Ok(());
+            }
             match self.state.mode {
                 Mode::Normal | Mode::Search => {
                     if let ModalKind::HintBar { mode } = &self.state.modal_type {
@@ -218,15 +274,15 @@ impl<'a> App<'a> {
                                 self.state.clear_marks();
                                 self.needs_redraw = true;
                             }
-                            KeyCode::Char('n') => {
+                            KeyCode::Char('n') | KeyCode::Char('N') => {
                                 if self.state.mode == Mode::Search {
-                                    if key.modifiers.contains(KeyModifiers::SHIFT) {
-                                        let result = self.state.next_match("prev".to_string());
-                                        self.report_error(result);
+                                    let direction = if key.code == KeyCode::Char('N') {
+                                        SearchDirection::Backward
                                     } else {
-                                        let result = self.state.next_match("next".to_string());
-                                        self.report_error(result);
-                                    }
+                                        SearchDirection::Forward
+                                    };
+                                    let result = self.state.next_match(direction);
+                                    self.report_error(result);
                                     self.needs_redraw = true;
                                 }
                             }
@@ -250,7 +306,8 @@ impl<'a> App<'a> {
                         self.needs_redraw = true;
                     }
                     _ => {
-                        if self.state.input.lines().join("").len() < 255 {
+                        let input_bytes = self.state.input.lines().join("").len();
+                        if accepts_input(input_bytes, key.code, key.modifiers) {
                             self.state.input.input(event);
                             self.needs_redraw = true;
                         }
@@ -358,6 +415,65 @@ mod tests {
         assert!(matches!(
             app.state.notification,
             Some(Notification::Error { .. })
+        ));
+    }
+
+    #[test]
+    fn repeat_and_release_cannot_complete_multi_key_commands() {
+        let mode = Mode::Normal;
+        let modal = ModalKind::HintBar {
+            mode: HintBarMode::Delete,
+        };
+
+        assert!(!accepts_key_event(
+            &mode,
+            &modal,
+            KeyEventKind::Repeat,
+            KeyCode::Char('d'),
+            KeyModifiers::NONE,
+        ));
+        assert!(!accepts_key_event(
+            &mode,
+            &modal,
+            KeyEventKind::Release,
+            KeyCode::Char('d'),
+            KeyModifiers::NONE,
+        ));
+        assert!(accepts_key_event(
+            &mode,
+            &modal,
+            KeyEventKind::Press,
+            KeyCode::Char('d'),
+            KeyModifiers::NONE,
+        ));
+    }
+
+    #[test]
+    fn input_limit_only_blocks_insertion() {
+        assert!(!accepts_input(
+            INPUT_LIMIT_BYTES,
+            KeyCode::Char('a'),
+            KeyModifiers::NONE
+        ));
+        assert!(!accepts_input(
+            INPUT_LIMIT_BYTES - 1,
+            KeyCode::Char('я'),
+            KeyModifiers::NONE
+        ));
+        assert!(accepts_input(
+            INPUT_LIMIT_BYTES,
+            KeyCode::Backspace,
+            KeyModifiers::NONE
+        ));
+        assert!(accepts_input(
+            INPUT_LIMIT_BYTES,
+            KeyCode::Left,
+            KeyModifiers::NONE
+        ));
+        assert!(accepts_input(
+            INPUT_LIMIT_BYTES,
+            KeyCode::Char('a'),
+            KeyModifiers::CONTROL
         ));
     }
 }

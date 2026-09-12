@@ -17,8 +17,8 @@ use crate::app::{
     ui::modal::{ModalKind, UnderLineModalAction},
     utils::{
         fs::{
-            copy_file_path, create_dir, create_file, exec, exec_shell_in, move_file, paste_file,
-            remove_file, remove_file_to_trash, rename_file, MoveOutcome,
+            copy_file_path, create_dir, create_file, exec_editor, exec_shell_in, move_file,
+            paste_file, remove_file, remove_file_to_trash, rename_file, MoveOutcome,
         },
         i18n::Lang,
     },
@@ -352,23 +352,11 @@ impl<'a> FileManager for State<'a> {
     }
 
     fn execute_file(&mut self, file_name: &Path) -> io::Result<()> {
-        let editor_result = exec(&self.config.common.editor, &[file_name.as_os_str()]);
+        self.preview_cache.invalidate(file_name);
+        let editor_result = exec_editor(&self.config.common.editor, file_name);
         self.from_external_app = true;
         let position_id = get_position(&self.positions_map, &self.current_dir);
-        let refresh_result = self
-            .reset_state_except_notifications(position_id)
-            .and_then(|()| {
-                let refreshed_position = position_id.min(self.files[1].len().saturating_sub(1));
-                update_dir_position(
-                    &mut self.positions_map,
-                    &self.current_dir,
-                    refreshed_position,
-                );
-                if refreshed_position != position_id {
-                    self.reset_state_except_notifications(refreshed_position)?;
-                }
-                Ok(())
-            });
+        let refresh_result = self.reset_state_except_notifications(position_id);
         editor_result.and(refresh_result)
     }
 
@@ -377,16 +365,48 @@ impl<'a> FileManager for State<'a> {
     }
 
     fn toggle_hidden_files(&mut self) -> io::Result<()> {
-        self.show_hidden_files = !self.show_hidden_files;
-        let position_id = get_position(&self.positions_map, &self.current_dir);
-        self.reset_state_except_notifications(position_id)
+        let selected_name =
+            get_current_file(&self.positions_map, &self.current_dir, &self.files[1])
+                .map(|file| file.name.clone());
+        let show_hidden_files = !self.show_hidden_files;
+        let initial_columns = MillerColumns::build_columns(
+            &self.current_dir,
+            0,
+            self.search_pattern.clone(),
+            show_hidden_files,
+        )?;
+        let fallback = get_position(&self.positions_map, &self.current_dir)
+            .min(initial_columns.files[1].len().saturating_sub(1));
+        let position_id = selected_name
+            .and_then(|name| {
+                initial_columns.files[1]
+                    .iter()
+                    .position(|file| file.name == name)
+            })
+            .unwrap_or(fallback);
+        let columns = MillerColumns::build_columns(
+            &self.current_dir,
+            position_id,
+            self.search_pattern.clone(),
+            show_hidden_files,
+        )?;
+        self.refresh_preview(&self.current_dir.clone(), position_id, &columns.files[1]);
+
+        self.show_hidden_files = show_hidden_files;
+        self.files = columns.files;
+        self.dirs = columns.dirs;
+        update_dir_position(&mut self.positions_map, &self.current_dir, position_id);
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::test_utils::{create_test_state, create_test_state_at};
+    use crate::app::{
+        state::Navigation,
+        test_utils::{create_test_state, create_test_state_at},
+    };
     use std::fs;
     use tempfile::tempdir;
 
@@ -497,5 +517,23 @@ mod tests {
             state.notification,
             Some(Notification::Error { .. })
         ));
+    }
+
+    #[test]
+    fn toggling_hidden_files_preserves_the_selected_path() {
+        let temp = tempdir().unwrap();
+        fs::write(temp.path().join(".hidden"), "").unwrap();
+        fs::write(temp.path().join("visible-a"), "").unwrap();
+        fs::write(temp.path().join("visible-b"), "").unwrap();
+        let mut state = create_test_state_at(temp.path()).unwrap();
+        state.navigate_down(1).unwrap();
+
+        state.toggle_hidden_files().unwrap();
+        let selected = get_current_file(&state.positions_map, &state.current_dir, &state.files[1]);
+        assert_eq!(selected.unwrap().name, "visible-b");
+
+        state.toggle_hidden_files().unwrap();
+        let selected = get_current_file(&state.positions_map, &state.current_dir, &state.files[1]);
+        assert_eq!(selected.unwrap().name, "visible-b");
     }
 }

@@ -1,5 +1,6 @@
 use clap::Parser;
 use std::{
+    env,
     ffi::OsString,
     fs::{self, OpenOptions},
     io::{self, Write},
@@ -14,8 +15,8 @@ pub mod default_config;
 struct Args {
     #[arg(long)]
     editor: Option<String>,
-    #[arg(long, default_value = "config.toml")]
-    config_path: PathBuf,
+    #[arg(long)]
+    config_path: Option<PathBuf>,
 }
 
 pub fn load_config() -> Config {
@@ -23,12 +24,13 @@ pub fn load_config() -> Config {
 }
 
 fn load_config_from(args: Args) -> Config {
-    let config_path = args.config_path;
+    let config_path = args.config_path.unwrap_or_else(default_config_path);
 
     let mut config = Config {
         config_path: config_path.clone(),
         ..Config::default()
     };
+    let mut editor_from_file = false;
 
     if config_path.exists() {
         match fs::read_to_string(&config_path) {
@@ -36,6 +38,7 @@ fn load_config_from(args: Args) -> Config {
                 Ok(file_config) => {
                     config.common.editor = file_config.common.editor;
                     config.bookmarks = file_config.bookmarks;
+                    editor_from_file = true;
                 }
                 Err(e) => {
                     eprintln!(
@@ -55,11 +58,33 @@ fn load_config_from(args: Args) -> Config {
         }
     }
 
-    if let Some(editor_arg) = args.editor {
-        config.common.editor = editor_arg;
+    if let Some(editor) = args.editor.or_else(|| {
+        (!editor_from_file)
+            .then(|| env::var("VISUAL").ok().or_else(|| env::var("EDITOR").ok()))
+            .flatten()
+    }) {
+        config.common.editor = editor;
     }
 
     config
+}
+
+fn default_config_path() -> PathBuf {
+    if let Some(path) = env::var_os("XDG_CONFIG_HOME") {
+        return PathBuf::from(path).join("stranger/config.toml");
+    }
+    #[cfg(target_os = "windows")]
+    if let Some(path) = env::var_os("APPDATA") {
+        return PathBuf::from(path).join("stranger/config.toml");
+    }
+    if let Some(home) = env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        #[cfg(target_os = "macos")]
+        return home.join("Library/Application Support/stranger/config.toml");
+        #[cfg(not(target_os = "macos"))]
+        return home.join(".config/stranger/config.toml");
+    }
+    PathBuf::from("config.toml")
 }
 
 fn validate_existing_config(path: &Path) -> io::Result<Option<fs::Permissions>> {
@@ -132,6 +157,12 @@ pub fn save_config(config: &Config) -> io::Result<()> {
     } else {
         config.config_path.clone()
     };
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent)?;
+    }
     let permissions = validate_existing_config(&path)?;
     let toml_string = toml::to_string(config).map_err(io::Error::other)?;
     atomic_write(&path, toml_string.as_bytes(), permissions)
@@ -148,7 +179,7 @@ mod tests {
         let config_path = temp.path().join("custom.toml");
         let config = load_config_from(Args {
             editor: Some("vim".into()),
-            config_path: config_path.clone(),
+            config_path: Some(config_path.clone()),
         });
 
         save_config(&config).unwrap();
@@ -192,5 +223,15 @@ mod tests {
             .unwrap()
             .contains("editor = \"vim\""));
         assert_eq!(fs::read_dir(temp.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn default_config_is_outside_the_launch_directory_when_home_is_available() {
+        let path = default_config_path();
+
+        if env::var_os("HOME").is_some() || env::var_os("APPDATA").is_some() {
+            assert!(path.ends_with("stranger/config.toml"));
+            assert!(path.is_absolute());
+        }
     }
 }

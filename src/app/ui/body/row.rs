@@ -142,3 +142,59 @@ impl Row {
         ListItem::new(line).style(style)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::model::miller::entries::{FileEntry, FileVariant};
+    use ratatui::widgets::List;
+
+    fn render_row(is_current_column: bool) -> Buffer {
+        let layout: Rc<[Rect]> = vec![
+            Rect::new(0, 0, 1, 1),
+            Rect::new(1, 0, 8, 1),
+            Rect::new(9, 0, 1, 1),
+            Rect::new(10, 0, 1, 1),
+            Rect::new(11, 0, 1, 1),
+        ]
+        .into();
+        let file = FileEntry {
+            name: "file".into(),
+            display_name: "file".into(),
+            variant: FileVariant::File {
+                size: None,
+                permissions: None,
+                last_modified: None,
+                is_matched: false,
+            },
+        };
+        let row = Row::build(
+            layout,
+            0,
+            &file,
+            RowContext {
+                is_current_column,
+                position_id: 0,
+                col_width: 12,
+                is_marked: false,
+            },
+            &Mode::Visual { anchor: 0 },
+        );
+        let area = Rect::new(0, 0, 12, 1);
+        let mut buffer = Buffer::empty(area);
+        List::new(vec![row]).render(area, &mut buffer);
+        buffer
+    }
+
+    #[test]
+    fn visual_cursor_highlight_is_limited_to_the_current_column() {
+        assert!(render_row(true)
+            .content
+            .iter()
+            .any(|cell| cell.bg == Color::Yellow));
+        assert!(render_row(false)
+            .content
+            .iter()
+            .all(|cell| cell.bg != Color::Yellow));
+    }
+}

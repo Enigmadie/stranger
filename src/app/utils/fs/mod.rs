@@ -1,5 +1,5 @@
 use std::{
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     fs::{File, Metadata, OpenOptions},
     io::{self, stdout},
     path::{Component, Path, PathBuf},
@@ -385,6 +385,23 @@ pub fn exec(program: &str, args: &[&OsStr]) -> IoResult<()> {
     command_result.and(resume_result)
 }
 
+fn editor_command(command: &str, file_path: &Path) -> io::Result<(String, Vec<OsString>)> {
+    let parts = shell_words::split(command)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    let (program, args) = parts
+        .split_first()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Editor command is empty"))?;
+    let mut args = args.iter().map(OsString::from).collect::<Vec<_>>();
+    args.push(file_path.as_os_str().to_owned());
+    Ok((program.clone(), args))
+}
+
+pub fn exec_editor(command: &str, file_path: &Path) -> io::Result<()> {
+    let (program, args) = editor_command(command, file_path)?;
+    let args = args.iter().map(OsString::as_os_str).collect::<Vec<_>>();
+    exec(&program, &args)
+}
+
 fn suspend_terminal() -> io::Result<()> {
     disable_raw_mode()?;
     execute!(stdout(), DisableMouseCapture, Show)
@@ -598,6 +615,24 @@ mod tests {
 
         assert!(error.to_string().contains("exited with status"));
         assert!(error.to_string().contains('7'));
+    }
+
+    #[test]
+    fn editor_command_supports_quoted_arguments_and_preserves_the_path() {
+        let file = Path::new("notes/file name.md");
+
+        let (program, args) = editor_command("nvim -f -c 'set number'", file).unwrap();
+
+        assert_eq!(program, "nvim");
+        assert_eq!(
+            args,
+            vec![
+                OsString::from("-f"),
+                OsString::from("-c"),
+                OsString::from("set number"),
+                file.as_os_str().to_owned()
+            ]
+        );
     }
 
     #[cfg(unix)]

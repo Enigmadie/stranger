@@ -133,3 +133,36 @@ impl<'a> Bookmarks for State<'a> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::{
+        model::miller::positions::{get_position, update_dir_position},
+        test_utils::create_test_state_at,
+    };
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn opening_bookmark_uses_the_target_directory_position() {
+        let temp = tempdir().unwrap();
+        let target = temp.path().join("target");
+        fs::create_dir(&target).unwrap();
+        fs::write(target.join("a"), "").unwrap();
+        fs::write(target.join("b"), "").unwrap();
+        let mut state = create_test_state_at(temp.path()).unwrap();
+        update_dir_position(&mut state.positions_map, &target, 1);
+        state
+            .config
+            .bookmarks
+            .insert("target".into(), target.clone());
+        state.mode = Mode::Bookmarks { position_id: 0 };
+
+        state.open_dir_from_bookmark().unwrap();
+
+        assert_eq!(state.current_dir, target);
+        assert_eq!(get_position(&state.positions_map, &state.current_dir), 1);
+        assert_eq!(state.files[1][1].name, "b");
+    }
+}

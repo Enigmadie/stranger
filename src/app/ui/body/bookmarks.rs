@@ -10,7 +10,7 @@ use crate::app::{
     state::State,
     ui::body::{
         components::column_widget::{ColumnWidget, ColumnsWidget},
-        Row,
+        viewport_offset, Row,
     },
 };
 
@@ -26,28 +26,17 @@ impl Bookmarks {
             .split(area);
 
         let cursor = position_id;
-        const TARGET_POSITION_DOWN: usize = 6;
-
         let visible_height = layout[0].height.saturating_sub(2) as usize;
-
-        let offset = if names.len() > visible_height {
-            let max_possible_offset = names.len().saturating_sub(visible_height);
-            let upper_bound = visible_height - TARGET_POSITION_DOWN;
-            if cursor >= upper_bound {
-                (cursor - upper_bound).min(max_possible_offset)
-            } else {
-                0
-            }
-        } else {
-            0
-        };
+        let offset = viewport_offset(names.len(), visible_height, cursor);
 
         let list_names: Vec<ListItem> = names
             .iter()
             .skip(offset)
             .take(visible_height)
             .enumerate()
-            .map(|(row_id, file)| Row::bookmarks_build(row_id, file.to_string(), true, cursor))
+            .map(|(row_id, file)| {
+                Row::bookmarks_build(row_id + offset, file.to_string(), true, cursor)
+            })
             .collect();
 
         let path_strings: Vec<String> = paths
@@ -60,7 +49,9 @@ impl Bookmarks {
             .skip(offset)
             .take(visible_height)
             .enumerate()
-            .map(|(row_id, path)| Row::bookmarks_build(row_id, path.to_string(), false, cursor))
+            .map(|(row_id, path)| {
+                Row::bookmarks_build(row_id + offset, path.to_string(), false, cursor)
+            })
             .collect();
 
         ColumnsWidget::new(
@@ -70,5 +61,32 @@ impl Bookmarks {
             ],
             layout,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::test_utils::create_test_state;
+    use ratatui::{buffer::Buffer, style::Color, widgets::Widget};
+
+    #[test]
+    fn scrolled_bookmark_uses_its_absolute_index_for_highlighting() {
+        let mut state = create_test_state();
+        for index in 0..10 {
+            state.config.bookmarks.insert(
+                format!("bookmark-{index}"),
+                PathBuf::from(format!("/path/{index}")),
+            );
+        }
+        let area = Rect::new(0, 0, 60, 5);
+        let mut buffer = Buffer::empty(area);
+
+        Bookmarks::build(&state, 8, area).render(area, &mut buffer);
+
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| cell.bg == Color::LightCyan));
     }
 }

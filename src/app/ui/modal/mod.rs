@@ -1,9 +1,12 @@
 pub mod hint_bar;
 
 use crate::app::{
-    config::constants::ui::{COLUMN_PERCENTAGE, FIRST_COLUMN_PERCENTAGE, HEADER_HEIGHT},
+    config::constants::ui::{
+        COLUMN_PERCENTAGE, FIRST_COLUMN_PERCENTAGE, FOOTER_HEIGHT, HEADER_HEIGHT,
+    },
     model::miller::positions::get_position,
     state::State,
+    ui::body::viewport_offset,
 };
 use ratatui::{
     buffer::Buffer,
@@ -77,11 +80,14 @@ impl<'a> Widget for Modal<'a> {
                 let (x, y) = self.get_underline_pos();
                 let (width, _) = self.get_underline_size();
 
-                let modal_area = Rect {
+                let requested_area = Rect {
                     x,
                     y,
                     height: 3,
                     width,
+                };
+                let Some(modal_area) = clipped_rect(requested_area, area) else {
+                    return;
                 };
 
                 Clear.render(modal_area, buf);
@@ -109,11 +115,14 @@ impl<'a> Widget for Modal<'a> {
             }
             ModalKind::HintBar { mode } => hint_bar::build(area, buf, mode),
             ModalKind::BottomLine => {
-                let modal_area = Rect {
-                    x: 0,
-                    y: area.height.saturating_sub(1),
+                let requested_area = Rect {
+                    x: area.x,
+                    y: area.y.saturating_add(area.height.saturating_sub(1)),
                     width: area.width,
                     height: 1,
+                };
+                let Some(modal_area) = clipped_rect(requested_area, area) else {
+                    return;
                 };
 
                 Clear.render(modal_area, buf);
@@ -140,11 +149,25 @@ impl<'a> Modal<'a> {
 
     pub fn get_underline_pos(&self) -> (u16, u16) {
         let body_width = self.area.width;
-        let x = (body_width as f32 * (FIRST_COLUMN_PERCENTAGE as f32 / 100.0)) as u16;
+        let x = self
+            .area
+            .x
+            .saturating_add((body_width as f32 * (FIRST_COLUMN_PERCENTAGE as f32 / 100.0)) as u16);
 
-        let position_id = get_position(&self.state.positions_map, &self.state.current_dir) as u16;
-        let item_height = 1;
-        let y = HEADER_HEIGHT + (position_id * item_height) + 1;
+        let position_id = get_position(&self.state.positions_map, &self.state.current_dir);
+        let body_height = self
+            .area
+            .height
+            .saturating_sub(HEADER_HEIGHT.saturating_add(FOOTER_HEIGHT));
+        let visible_height = body_height.saturating_sub(2) as usize;
+        let offset = viewport_offset(self.state.files[1].len(), visible_height, position_id);
+        let visible_position = position_id.saturating_sub(offset) as u16;
+        let y = self
+            .area
+            .y
+            .saturating_add(HEADER_HEIGHT)
+            .saturating_add(visible_position)
+            .saturating_add(1);
         (x, y)
     }
 
@@ -157,6 +180,14 @@ impl<'a> Modal<'a> {
         let heigth = HEADER_HEIGHT + (position_id * item_height);
         (width, heigth)
     }
+}
+
+fn clipped_rect(rect: Rect, area: Rect) -> Option<Rect> {
+    let x = rect.x.max(area.x);
+    let y = rect.y.max(area.y);
+    let right = rect.right().min(area.right());
+    let bottom = rect.bottom().min(area.bottom());
+    (right > x && bottom > y).then(|| Rect::new(x, y, right - x, bottom - y))
 }
 
 #[cfg(test)]
@@ -183,5 +214,16 @@ mod tests {
         let (x, y) = modal.get_underline_pos();
         assert_eq!(2, y);
         assert_eq!(2, x);
+    }
+
+    #[test]
+    fn rectangles_are_clipped_to_the_render_area() {
+        let area = Rect::new(5, 5, 10, 4);
+
+        assert_eq!(
+            clipped_rect(Rect::new(3, 7, 20, 5), area),
+            Some(Rect::new(5, 7, 10, 2))
+        );
+        assert_eq!(clipped_rect(Rect::new(0, 0, 2, 2), area), None);
     }
 }

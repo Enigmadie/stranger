@@ -26,6 +26,7 @@ impl MillerColumns {
         };
         let selected_dir_files =
             Self::parse_dir_files(&selected_dir_entry, &search_pattern, show_hidden_files)?;
+        let position_id = position_id.min(selected_dir_files.len().saturating_sub(1));
 
         let parent_dir_entry = DirEntry {
             dir_name: current_dir.parent().map(|e| e.to_path_buf()),

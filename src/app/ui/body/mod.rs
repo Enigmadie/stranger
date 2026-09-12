@@ -14,10 +14,7 @@ use crate::app::{
         miller::positions::get_position,
     },
     state::State,
-    ui::{
-        body::components::column_widget::{ColumnWidget, ColumnsWidget},
-        file_preview::highlight_file,
-    },
+    ui::body::components::column_widget::{ColumnWidget, ColumnsWidget},
 };
 
 pub mod bookmarks;
@@ -26,6 +23,17 @@ pub mod row;
 pub use row::{Row, RowContext};
 
 pub struct Body;
+
+const TARGET_POSITION_DOWN: usize = 6;
+
+pub(crate) fn viewport_offset(item_count: usize, visible_height: usize, cursor: usize) -> usize {
+    if visible_height == 0 || item_count <= visible_height {
+        return 0;
+    }
+    let max_possible_offset = item_count.saturating_sub(visible_height);
+    let upper_bound = visible_height.saturating_sub(TARGET_POSITION_DOWN);
+    cursor.saturating_sub(upper_bound).min(max_possible_offset)
+}
 
 impl Body {
     pub fn build<'a>(state: &'a State, area: Rect) -> impl Widget + 'a {
@@ -59,8 +67,6 @@ impl Body {
                 let is_current_or_child_column = is_current_column || is_child_column;
                 let visible_height = layout[col_id].height.saturating_sub(2) as usize;
 
-                const TARGET_POSITION_DOWN: usize = 6;
-
                 let cursor = if is_current_column {
                     position_id
                 } else if (is_child_column && col_id < state.dirs.len()) || is_parent_column {
@@ -72,14 +78,8 @@ impl Body {
                     0
                 };
 
-                let offset = if is_current_or_child_column && dir.len() > visible_height {
-                    let max_possible_offset = dir.len().saturating_sub(visible_height);
-                    let upper_bound = visible_height - TARGET_POSITION_DOWN; // 30 - 6 = 24;
-                    if cursor >= upper_bound {
-                        (cursor - upper_bound).min(max_possible_offset)
-                    } else {
-                        0
-                    }
+                let offset = if is_current_or_child_column {
+                    viewport_offset(dir.len(), visible_height, cursor)
                 } else {
                     0
                 };
@@ -110,14 +110,7 @@ impl Body {
                         current_file.is_some_and(|e| e.variant.is_regular_file());
 
                     let preview = if is_current_column_and_selected_file {
-                        let bytes_size = 2048;
-                        if let Some(file) = current_file {
-                            let filepath = build_full_path(&state.current_dir, file);
-                            highlight_file(&filepath, bytes_size)
-                                .unwrap_or(vec![Line::from("Error reading file")])
-                        } else {
-                            vec![Line::from("Empty")]
-                        }
+                        state.preview.clone()
                     } else {
                         vec![Line::from("Empty")]
                     };
@@ -159,5 +152,17 @@ impl Body {
             .collect();
 
         ColumnsWidget::new(widgets, layout)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::viewport_offset;
+
+    #[test]
+    fn viewport_offset_handles_tiny_heights() {
+        assert_eq!(viewport_offset(10, 0, 9), 0);
+        assert_eq!(viewport_offset(10, 1, 9), 9);
+        assert_eq!(viewport_offset(10, 5, 7), 5);
     }
 }

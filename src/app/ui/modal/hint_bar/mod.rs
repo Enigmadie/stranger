@@ -13,11 +13,14 @@ pub enum HintBarMode {
 }
 
 pub fn build(area: Rect, buf: &mut Buffer, mode: &HintBarMode) {
-    let height = 10;
+    let height = 10.min(area.height);
+    if height == 0 || area.width == 0 {
+        return;
+    }
 
     let modal_area = Rect {
-        x: 0,
-        y: area.height.saturating_sub(height),
+        x: area.x,
+        y: area.y.saturating_add(area.height.saturating_sub(height)),
         height,
         width: area.width,
     };
@@ -33,11 +36,14 @@ pub fn build(area: Rect, buf: &mut Buffer, mode: &HintBarMode) {
             ("d", "Cut Files"),
             (
                 "D",
-                "Delete Files To Trash (On macOS, if prompted, please grant file acces. If not granted, files will be deleted permanently.)",
+                "Delete Files To Trash (On macOS, grant file access if prompted.)",
             ),
             ("x", "Delete Files Permanently"),
         ],
-        HintBarMode::Exit => vec![("Z", "Exit into current directory"), ("Q", "Exit into initial directory")],
+        HintBarMode::Exit => vec![
+            ("Z", "Exit into current directory"),
+            ("Q", "Exit into initial directory"),
+        ],
     };
 
     let rows: Vec<Row> = list
