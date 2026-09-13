@@ -7,6 +7,7 @@ use crate::app::{
     model::miller::positions::get_position,
     state::State,
     ui::body::viewport_offset,
+    utils::i18n::Lang,
 };
 use ratatui::{
     buffer::Buffer,
@@ -98,9 +99,9 @@ impl<'a> Widget for Modal<'a> {
                 let mut input = self.state.input.clone();
 
                 let title = match action {
-                    UnderLineModalAction::Add => "Add File",
-                    UnderLineModalAction::Edit => "Rename File",
-                    UnderLineModalAction::Bookmarks => "Add New Bookmark Name",
+                    UnderLineModalAction::Add => Lang::en("modal_add_file_title"),
+                    UnderLineModalAction::Edit => Lang::en("modal_rename_file_title"),
+                    UnderLineModalAction::Bookmarks => Lang::en("modal_add_bookmark_title"),
                 };
 
                 input.set_block(

@@ -11,7 +11,6 @@ use std::ffi::CString;
 
 use crossterm::{
     cursor::Show,
-    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
 };
@@ -28,7 +27,7 @@ fn validate_file_name(name: &str) -> io::Result<&std::ffi::OsStr> {
         (Some(Component::Normal(name)), None) => Ok(name),
         _ => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "A single file name is required",
+            Lang::en("file_name_required"),
         )),
     }
 }
@@ -81,7 +80,7 @@ fn rename_no_replace(source: &Path, destination: &Path) -> io::Result<()> {
     if destination.try_exists()? {
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
-            format!("Destination already exists: {}", destination.display()),
+            Lang::en_fmt("destination_exists", &[&destination.to_string_lossy()]),
         ));
     }
     std::fs::rename(source, destination)
@@ -90,7 +89,7 @@ fn rename_no_replace(source: &Path, destination: &Path) -> io::Result<()> {
 pub fn rename_file(full_path: &Path, new_name: String) -> io::Result<()> {
     let parent_dir = full_path
         .parent()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid file path"))?;
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, Lang::en("path_invalid")))?;
 
     let new_path = parent_dir.join(validate_file_name(&new_name)?);
     if new_path == full_path {
@@ -198,7 +197,10 @@ fn copy_directory_contents(source: &Path, destination: &Path) -> io::Result<()> 
         } else {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("Cannot copy special file: {}", source_path.display()),
+                Lang::en_fmt(
+                    "cannot_copy_special_file",
+                    &[&source_path.to_string_lossy()],
+                ),
             ));
         }
     }
@@ -209,24 +211,24 @@ fn prepare_transfer(src_path: &Path, dest_path: &Path) -> io::Result<(Metadata, 
     let source_metadata = src_path.symlink_metadata().map_err(|error| {
         io::Error::new(
             error.kind(),
-            format!("Source path does not exist: {}", src_path.display()),
+            Lang::en_fmt("source_path_does_not_exist", &[&src_path.to_string_lossy()]),
         )
     })?;
     let destination_metadata = dest_path.symlink_metadata().map_err(|error| {
         io::Error::new(
             error.kind(),
-            format!(
-                "Destination directory does not exist: {}",
-                dest_path.display()
+            Lang::en_fmt(
+                "destination_directory_does_not_exist",
+                &[&dest_path.to_string_lossy()],
             ),
         )
     })?;
     if !destination_metadata.file_type().is_dir() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
-            format!(
-                "Destination directory does not exist: {}",
-                dest_path.display()
+            Lang::en_fmt(
+                "destination_directory_does_not_exist",
+                &[&dest_path.to_string_lossy()],
             ),
         ));
     }
@@ -237,16 +239,14 @@ fn prepare_transfer(src_path: &Path, dest_path: &Path) -> io::Result<(Metadata, 
         if destination == source || destination.starts_with(&source) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                "Cannot copy or move a directory into itself",
+                Lang::en("directory_transfer_into_itself"),
             ));
         }
     }
 
-    let destination = dest_path.join(
-        src_path
-            .file_name()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid path name"))?,
-    );
+    let destination = dest_path.join(src_path.file_name().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidData, Lang::en("path_name_invalid"))
+    })?);
     Ok((source_metadata, destination))
 }
 
@@ -322,7 +322,7 @@ pub fn remove_file(path: &Path) -> io::Result<()> {
     let metadata = path.symlink_metadata().map_err(|error| {
         io::Error::new(
             error.kind(),
-            format!("Path does not exist: {}", path.display()),
+            Lang::en_fmt("path_does_not_exist", &[&path.to_string_lossy()]),
         )
     })?;
     let file_type = metadata.file_type();
@@ -355,19 +355,37 @@ where
 }
 
 pub fn whoami_info() -> io::Result<String> {
-    let username = Command::new("whoami")
-        .output()
-        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
-        .unwrap_or_else(|_| String::from("unknown"));
-
-    let hostname = Command::new("scutil")
-        .arg("--get")
-        .arg("LocalHostName")
-        .output()
-        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
-        .unwrap_or_else(|_| String::from("localhost"));
+    let username = std::env::var_os("USER")
+        .or_else(|| std::env::var_os("USERNAME"))
+        .map(|value| value.to_string_lossy().into_owned())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| Lang::en("unknown_username").to_string());
+    let hostname = hostname().unwrap_or_else(|_| Lang::en("unknown_hostname").to_string());
 
     Ok(format!("{}@{}", username, hostname))
+}
+
+#[cfg(unix)]
+fn hostname() -> io::Result<String> {
+    let mut buffer = [0_u8; 256];
+    // SAFETY: buffer is valid for writes of its full length for the duration of the call.
+    if unsafe { libc::gethostname(buffer.as_mut_ptr().cast(), buffer.len()) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let length = buffer
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(buffer.len());
+    Ok(String::from_utf8_lossy(&buffer[..length]).into_owned())
+}
+
+#[cfg(not(unix))]
+fn hostname() -> io::Result<String> {
+    std::env::var_os("COMPUTERNAME")
+        .or_else(|| std::env::var_os("HOSTNAME"))
+        .map(|value| value.to_string_lossy().into_owned())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "hostname is unavailable"))
 }
 
 fn run_command(program: &str, args: &[&OsStr]) -> io::Result<()> {
@@ -380,8 +398,9 @@ fn run_command(program: &str, args: &[&OsStr]) -> io::Result<()> {
     if status.success() {
         Ok(())
     } else {
-        Err(io::Error::other(format!(
-            "{program} exited with status {status}"
+        Err(io::Error::other(Lang::en_fmt(
+            "command_exited_with_status",
+            &[program, &status.to_string()],
         )))
     }
 }
@@ -396,9 +415,12 @@ pub fn exec(program: &str, args: &[&OsStr]) -> IoResult<()> {
 fn editor_command(command: &str, file_path: &Path) -> io::Result<(String, Vec<OsString>)> {
     let parts = shell_words::split(command)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
-    let (program, args) = parts
-        .split_first()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Editor command is empty"))?;
+    let (program, args) = parts.split_first().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            Lang::en("editor_command_empty"),
+        )
+    })?;
     let mut args = args.iter().map(OsString::from).collect::<Vec<_>>();
     args.push(file_path.as_os_str().to_owned());
     Ok((program.clone(), args))
@@ -412,7 +434,7 @@ pub fn exec_editor(command: &str, file_path: &Path) -> io::Result<()> {
 
 fn suspend_terminal() -> io::Result<()> {
     disable_raw_mode()?;
-    execute!(stdout(), DisableMouseCapture, Show)
+    execute!(stdout(), Show)
 }
 
 fn resume_terminal() -> io::Result<()> {
@@ -421,7 +443,6 @@ fn resume_terminal() -> io::Result<()> {
     execute!(
         stdout(),
         EnterAlternateScreen,
-        EnableMouseCapture,
         Clear(ClearType::All),
         Show,
         crossterm::cursor::MoveTo(0, 0)

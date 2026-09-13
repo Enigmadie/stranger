@@ -15,6 +15,7 @@ use crate::app::{
     },
     state::State,
     ui::body::components::column_widget::{ColumnWidget, ColumnsWidget},
+    utils::i18n::Lang,
 };
 
 pub mod bookmarks;
@@ -112,14 +113,14 @@ impl Body {
                     let preview = if is_current_column_and_selected_file {
                         state.preview.clone()
                     } else {
-                        vec![Line::from("Empty")]
+                        vec![Line::from(Lang::en("preview_empty"))]
                     };
 
                     ColumnWidget::Paragraph(Paragraph::new(preview).block(Block::default()))
                 } else if is_current_or_child_column && dir.is_empty() {
                     // if current or child dir are empty
                     ColumnWidget::Paragraph(
-                        Paragraph::new("Empty directory").block(Block::default()),
+                        Paragraph::new(Lang::en("directory_empty")).block(Block::default()),
                     )
                 } else {
                     let list_items: Vec<ListItem> = dir

@@ -118,7 +118,7 @@ impl<'a> State<'a> {
             .map(|path| {
                 self.preview_cache
                     .load(&path, 2048)
-                    .unwrap_or_else(|_| vec![Line::from("Error reading file")])
+                    .unwrap_or_else(|_| vec![Line::from(Lang::en("preview_read_error"))])
             })
             .unwrap_or_default();
     }

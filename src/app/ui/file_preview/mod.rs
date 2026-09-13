@@ -12,6 +12,8 @@ use ratatui::{
     text::{Line, Span},
 };
 
+use crate::app::utils::i18n::Lang;
+
 static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(SyntaxSet::load_defaults_newlines);
 static THEME_SET: Lazy<ThemeSet> = Lazy::new(ThemeSet::load_defaults);
 
@@ -79,7 +81,7 @@ pub fn highlight_file(file_path: &Path, max_bytes: usize) -> io::Result<Vec<Line
     if !file_path.symlink_metadata()?.file_type().is_file() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "Preview is only available for regular files",
+            Lang::en("preview_regular_files_only"),
         ));
     }
 
@@ -89,7 +91,7 @@ pub fn highlight_file(file_path: &Path, max_bytes: usize) -> io::Result<Vec<Line
         .take(max_bytes as u64)
         .read_to_end(&mut bytes)?;
     if bytes.contains(&0) {
-        return Ok(vec![Line::from("Binary or unsupported file")]);
+        return Ok(vec![Line::from(Lang::en("preview_binary_or_unsupported"))]);
     }
 
     let content = match std::str::from_utf8(&bytes) {
@@ -97,7 +99,7 @@ pub fn highlight_file(file_path: &Path, max_bytes: usize) -> io::Result<Vec<Line
         Err(error) if error.error_len().is_none() => {
             std::str::from_utf8(&bytes[..error.valid_up_to()]).unwrap_or_default()
         }
-        Err(_) => return Ok(vec![Line::from("Binary or unsupported file")]),
+        Err(_) => return Ok(vec![Line::from(Lang::en("preview_binary_or_unsupported"))]),
     };
 
     let content = content.replace('\t', "        ");

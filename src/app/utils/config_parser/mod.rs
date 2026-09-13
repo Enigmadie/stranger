@@ -8,6 +8,7 @@ use std::{
 };
 
 use crate::app::utils::config_parser::default_config::Config;
+use crate::app::utils::i18n::Lang;
 
 pub mod default_config;
 
@@ -42,17 +43,21 @@ fn load_config_from(args: Args) -> Config {
                 }
                 Err(e) => {
                     eprintln!(
-                        "Failed to parse config file '{}': {}",
-                        config_path.display(),
-                        e
+                        "{}",
+                        Lang::en_fmt(
+                            "config_parse_failed",
+                            &[&config_path.to_string_lossy(), &e.to_string()]
+                        )
                     );
                 }
             },
             Err(e) => {
                 eprintln!(
-                    "Failed to read config file '{}': {}",
-                    config_path.display(),
-                    e
+                    "{}",
+                    Lang::en_fmt(
+                        "config_read_failed",
+                        &[&config_path.to_string_lossy(), &e.to_string()]
+                    )
                 );
             }
         }
@@ -97,9 +102,9 @@ fn validate_existing_config(path: &Path) -> io::Result<Option<fs::Permissions>> 
     toml::from_str::<Config>(&content).map_err(|error| {
         io::Error::new(
             io::ErrorKind::InvalidData,
-            format!(
-                "Refusing to overwrite malformed config '{}': {error}",
-                path.display()
+            Lang::en_fmt(
+                "config_malformed_refusing_overwrite",
+                &[&path.to_string_lossy(), &error.to_string()],
             ),
         )
     })?;
@@ -115,9 +120,9 @@ fn atomic_write(
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
-    let file_name = path
-        .file_name()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid config path"))?;
+    let file_name = path.file_name().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, Lang::en("config_path_invalid"))
+    })?;
 
     for counter in 0_u32.. {
         let mut temp_name = OsString::from(".");

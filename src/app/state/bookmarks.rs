@@ -17,7 +17,7 @@ pub trait Bookmarks {
     fn enter_bookmarks_mode(&mut self);
     fn add_to_bookmarks(&mut self);
     fn commit_new_bookmark(&mut self, alias: String) -> io::Result<()>;
-    fn delete_from_bookmarks(&mut self);
+    fn delete_from_bookmarks(&mut self) -> io::Result<()>;
     fn open_dir_from_bookmark(&mut self) -> io::Result<()>;
 }
 
@@ -64,6 +64,12 @@ impl<'a> Bookmarks for State<'a> {
     }
 
     fn commit_new_bookmark(&mut self, alias: String) -> io::Result<()> {
+        if self.config.bookmarks.contains_key(&alias) {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                Lang::en_fmt("bookmark_alias_exists", &[&alias]),
+            ));
+        }
         if let Some(current_file) =
             get_current_file(&self.positions_map, &self.current_dir, &self.files[1])
         {
@@ -85,26 +91,22 @@ impl<'a> Bookmarks for State<'a> {
         }
     }
 
-    fn delete_from_bookmarks(&mut self) {
+    fn delete_from_bookmarks(&mut self) -> io::Result<()> {
         if let Mode::Bookmarks { position_id } = self.mode {
             let mut config = self.config.clone();
-            config.bookmarks.swap_remove_index(position_id);
-            match save_config(&config) {
-                Ok(()) => {
-                    self.config = config;
-                    self.notification = Notification::Info {
-                        msg: Lang::en("bookmark_deleted").into(),
-                    }
-                    .into();
-                }
-                Err(error) => {
-                    self.notification = Notification::Error {
-                        msg: error.to_string().into(),
-                    }
-                    .into();
-                }
+            if config.bookmarks.shift_remove_index(position_id).is_none() {
+                return Ok(());
             }
+            save_config(&config)?;
+            self.config = config;
+            let position_id = position_id.min(self.config.bookmarks.len().saturating_sub(1));
+            self.mode = Mode::Bookmarks { position_id };
+            self.notification = Notification::Info {
+                msg: Lang::en("bookmark_deleted").into(),
+            }
+            .into();
         }
+        Ok(())
     }
 
     fn open_dir_from_bookmark(&mut self) -> io::Result<()> {
@@ -164,5 +166,70 @@ mod tests {
         assert_eq!(state.current_dir, target);
         assert_eq!(get_position(&state.positions_map, &state.current_dir), 1);
         assert_eq!(state.files[1][1].name, "b");
+    }
+
+    #[test]
+    fn deleting_bookmark_preserves_order_and_saves() {
+        let temp = tempdir().unwrap();
+        let mut state = create_test_state_at(temp.path()).unwrap();
+        state.config.config_path = temp.path().join("config.toml");
+        state
+            .config
+            .bookmarks
+            .insert("first".into(), "/first".into());
+        state
+            .config
+            .bookmarks
+            .insert("second".into(), "/second".into());
+        state
+            .config
+            .bookmarks
+            .insert("third".into(), "/third".into());
+        state.mode = Mode::Bookmarks { position_id: 1 };
+
+        state.delete_from_bookmarks().unwrap();
+
+        assert_eq!(
+            state
+                .config
+                .bookmarks
+                .keys()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            ["first", "third"]
+        );
+        let saved = fs::read_to_string(&state.config.config_path).unwrap();
+        assert!(saved.find("first").unwrap() < saved.find("third").unwrap());
+    }
+
+    #[test]
+    fn duplicate_bookmark_alias_is_rejected_without_overwriting() {
+        let temp = tempdir().unwrap();
+        let mut state = create_test_state_at(temp.path()).unwrap();
+        let original = temp.path().join("original");
+        state
+            .config
+            .bookmarks
+            .insert("duplicate".into(), original.clone());
+
+        let error = state.commit_new_bookmark("duplicate".into()).unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(state.config.bookmarks["duplicate"], original);
+    }
+
+    #[test]
+    fn failed_bookmark_delete_keeps_in_memory_config() {
+        let temp = tempdir().unwrap();
+        let mut state = create_test_state_at(temp.path()).unwrap();
+        state.config.config_path = temp.path().to_path_buf();
+        state.config.bookmarks.insert("kept".into(), "/kept".into());
+        state.mode = Mode::Bookmarks { position_id: 0 };
+
+        assert!(state.delete_from_bookmarks().is_err());
+        assert_eq!(
+            state.config.bookmarks["kept"],
+            std::path::PathBuf::from("/kept")
+        );
     }
 }

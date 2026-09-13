@@ -80,7 +80,7 @@ fn deletion_paths(paths: Vec<PathBuf>, current_dir: &Path) -> io::Result<Vec<Pat
     {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "Cannot delete the current directory or one of its parents",
+            Lang::en("cannot_delete_current_or_parent"),
         ));
     }
 
@@ -154,7 +154,7 @@ impl<'a> FileManager for State<'a> {
                     }
                     None => Err(io::Error::new(
                         io::ErrorKind::NotFound,
-                        format!("Failed to update file: {}", self.current_dir.display()),
+                        Lang::en_fmt("file_update_failed", &[&self.current_dir.to_string_lossy()]),
                     )),
                 }
             }
@@ -248,17 +248,14 @@ impl<'a> FileManager for State<'a> {
         }
 
         if !errors.is_empty() {
+            let error_count = errors.len().to_string();
+            let error_messages = errors
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
             self.notification = Notification::Error {
-                msg: format!(
-                    "Failed to delete {} files: {}",
-                    errors.len(),
-                    errors
-                        .iter()
-                        .map(|e| e.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-                .into(),
+                msg: Lang::en_fmt("files_delete_failed", &[&error_count, &error_messages]).into(),
             }
             .into()
         } else {

@@ -1,5 +1,4 @@
 use crossterm::cursor::Show;
-use crossterm::event::DisableMouseCapture;
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, LeaveAlternateScreen};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
@@ -358,7 +357,8 @@ impl<'a> App<'a> {
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('d') => {
-                        self.state.delete_from_bookmarks();
+                        let result = self.state.delete_from_bookmarks();
+                        self.report_error(result);
                         self.needs_redraw = true;
                     }
                     KeyCode::Char('l') => {
@@ -390,13 +390,9 @@ impl<'a> App<'a> {
 pub fn cleanup_terminal() -> io::Result<()> {
     let raw_result = disable_raw_mode().map_err(io::Error::other);
     let screen_result = execute!(stdout(), LeaveAlternateScreen);
-    let mouse_result = execute!(stdout(), DisableMouseCapture);
     let cursor_result = execute!(stdout(), Show);
 
-    raw_result
-        .and(screen_result)
-        .and(mouse_result)
-        .and(cursor_result)
+    raw_result.and(screen_result).and(cursor_result)
 }
 
 #[cfg(test)]

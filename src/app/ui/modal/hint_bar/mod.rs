@@ -5,6 +5,8 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Clear, Row, Table, Widget},
 };
 
+use crate::app::utils::i18n::Lang;
+
 #[derive(Debug)]
 pub enum HintBarMode {
     Bookmarks,
@@ -31,18 +33,18 @@ pub fn build(area: Rect, buf: &mut Buffer, mode: &HintBarMode) {
     backdrop.render(modal_area, buf);
 
     let list = match mode {
-        HintBarMode::Bookmarks => vec![("b", "Bookmark List"), ("a", "Add Bookmark")],
+        HintBarMode::Bookmarks => vec![
+            ("b", Lang::en("hint_bookmark_list")),
+            ("a", Lang::en("hint_add_bookmark")),
+        ],
         HintBarMode::Delete => vec![
-            ("d", "Cut Files"),
-            (
-                "D",
-                "Delete Files To Trash (On macOS, grant file access if prompted.)",
-            ),
-            ("x", "Delete Files Permanently"),
+            ("d", Lang::en("hint_cut_files")),
+            ("D", Lang::en("hint_delete_to_trash")),
+            ("x", Lang::en("hint_delete_permanently")),
         ],
         HintBarMode::Exit => vec![
-            ("Z", "Exit into current directory"),
-            ("Q", "Exit into initial directory"),
+            ("Z", Lang::en("hint_exit_current_directory")),
+            ("Q", Lang::en("hint_exit_initial_directory")),
         ],
     };
 
@@ -57,7 +59,13 @@ pub fn build(area: Rect, buf: &mut Buffer, mode: &HintBarMode) {
         .collect();
 
     Table::new(rows, [Constraint::Length(12), Constraint::Min(10)])
-        .header(Row::new(vec!["Key", "Action"]).style(Style::default().fg(Color::Cyan)))
+        .header(
+            Row::new(vec![
+                Lang::en("hint_column_key"),
+                Lang::en("hint_column_action"),
+            ])
+            .style(Style::default().fg(Color::Cyan)),
+        )
         .block(Block::default().borders(Borders::TOP))
         .style(Style::default().fg(Color::White))
         .render(modal_area, buf);

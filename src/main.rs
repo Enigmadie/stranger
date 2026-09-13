@@ -1,5 +1,4 @@
 use crossterm::{
-    event::EnableMouseCapture,
     execute,
     terminal::{enable_raw_mode, EnterAlternateScreen},
 };
@@ -7,7 +6,10 @@ use ratatui::prelude::*;
 use std::io::{self, stdout, Stdout};
 
 use stranger::{
-    app::{cleanup_terminal, utils::config_parser::load_config},
+    app::{
+        cleanup_terminal,
+        utils::{config_parser::load_config, i18n::Lang},
+    },
     App,
 };
 
@@ -33,7 +35,7 @@ impl TerminalOps for CrosstermTerminalOps {
 
     fn enter_screen(&mut self) -> io::Result<()> {
         let mut stdout = stdout();
-        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)
+        execute!(stdout, EnterAlternateScreen)
     }
 
     fn create_terminal(&mut self) -> io::Result<Self::Terminal> {
@@ -72,7 +74,10 @@ impl<O: TerminalOps> TerminalGuard<O> {
 impl<O: TerminalOps> Drop for TerminalGuard<O> {
     fn drop(&mut self) {
         if let Err(error) = self.ops.cleanup() {
-            eprintln!("Failed to cleanup terminal: {error}");
+            eprintln!(
+                "{}",
+                Lang::en_fmt("terminal_cleanup_failed", &[&error.to_string()])
+            );
         }
     }
 }

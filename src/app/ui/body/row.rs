@@ -11,7 +11,7 @@ use ratatui::{
 use crate::app::{
     model::miller::entries::{FileEntry, FileVariant},
     state::Mode,
-    utils::format_bytes,
+    utils::{format_bytes, i18n::Lang},
 };
 
 pub struct Row {}
@@ -34,8 +34,8 @@ impl Row {
         let meta = match file.variant {
             FileVariant::Directory { len, .. } => len.map(|e| e.to_string()).unwrap_or_default(),
             FileVariant::File { size, .. } => size.map(format_bytes).unwrap_or_default(),
-            FileVariant::Symlink { .. } => "link".to_string(),
-            FileVariant::Special { .. } => "special".to_string(),
+            FileVariant::Symlink { .. } => Lang::en("file_type_symlink").to_string(),
+            FileVariant::Special { .. } => Lang::en("file_type_special").to_string(),
         };
         let meta_width = row_layout[2].width as usize;
         let name = file.display_name.as_str();

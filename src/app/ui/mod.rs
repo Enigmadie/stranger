@@ -66,7 +66,7 @@ impl Header {
             .map(|e| e.display_name.to_owned())
             .unwrap_or(String::from(""));
 
-        let user_info = whoami_info().unwrap_or_else(|_| String::from("unknown@localhost"));
+        let user_info = whoami_info().unwrap_or_else(|_| Lang::en("unknown_user_host").to_string());
 
         let text = Line::from(vec![
             Span::styled(user_info, Style::default().fg(Color::Green).bold()),
@@ -119,12 +119,16 @@ impl Footer {
                             size.map(format_bytes).unwrap_or_default(),
                             last_modified.clone().unwrap_or_default(),
                         ),
-                        FileVariant::Symlink { .. } => {
-                            ("symlink".to_string(), String::new(), String::new())
-                        }
-                        FileVariant::Special { .. } => {
-                            ("special".to_string(), String::new(), String::new())
-                        }
+                        FileVariant::Symlink { .. } => (
+                            Lang::en("file_type_symlink").to_string(),
+                            String::new(),
+                            String::new(),
+                        ),
+                        FileVariant::Special { .. } => (
+                            Lang::en("file_type_special").to_string(),
+                            String::new(),
+                            String::new(),
+                        ),
                     })
                     .unwrap_or_default();
 
