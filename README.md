@@ -89,7 +89,7 @@ Bookmark changes are saved atomically. Existing config permissions are retained,
 | `r` | Rename the selected item |
 | `y` | Copy selected or marked items |
 | `p` | Paste copied or cut items |
-| `/` | Search by filename prefix |
+| `/` | Search by filename substring |
 | `n`, `N` | Next or previous search match |
 
 Input prompts support normal text editing, cursor movement, deletion, selection, undo, and redo through `tui-textarea`. Press `Enter` to commit or `Esc` to cancel. Input is limited to 255 UTF-8 bytes.

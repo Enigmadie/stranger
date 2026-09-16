@@ -79,9 +79,9 @@ impl MillerColumns {
                         let name = e.file_name();
                         let display_name = name.to_string_lossy().into_owned();
 
-                        let is_matched = search_pattern.as_ref().is_some_and(|pattern| {
-                            display_name.to_lowercase().starts_with(pattern)
-                        });
+                        let is_matched = search_pattern
+                            .as_ref()
+                            .is_some_and(|pattern| display_name.to_lowercase().contains(pattern));
 
                         if !show_hidden_files && display_name.starts_with('.') {
                             return None;
@@ -153,6 +153,27 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::tempdir;
+
+    #[test]
+    fn search_matches_case_insensitive_filename_substrings() {
+        let temp = tempdir().unwrap();
+        fs::write(temp.path().join("ProjectNotes.md"), "").unwrap();
+        fs::write(temp.path().join("unrelated.txt"), "").unwrap();
+
+        let columns =
+            MillerColumns::build_columns(temp.path(), 0, Some("jectno".into()), true).unwrap();
+        let project_notes = columns.files[1]
+            .iter()
+            .find(|entry| entry.display_name == "ProjectNotes.md")
+            .unwrap();
+        let unrelated = columns.files[1]
+            .iter()
+            .find(|entry| entry.display_name == "unrelated.txt")
+            .unwrap();
+
+        assert!(project_notes.variant.is_matched());
+        assert!(!unrelated.variant.is_matched());
+    }
 
     #[cfg(target_os = "linux")]
     #[test]
